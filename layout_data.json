@@ -1,0 +1,36 @@
+{
+    "column_counter": 5,
+    "groups": {},
+    "columns": [
+        {
+            "id": "C-1",
+            "x": 100.0,
+            "y": 50.0,
+            "group_id": null
+        },
+        {
+            "id": "C-2",
+            "x": 250.0,
+            "y": 150.0,
+            "group_id": null
+        },
+        {
+            "id": "C-3",
+            "x": 100.0,
+            "y": 250.0,
+            "group_id": null
+        },
+        {
+            "id": "C-4",
+            "x": -50.0,
+            "y": -80.0,
+            "group_id": null
+        },
+        {
+            "id": "C-5",
+            "x": -150.0,
+            "y": 100.0,
+            "group_id": null
+        }
+    ]
+}
