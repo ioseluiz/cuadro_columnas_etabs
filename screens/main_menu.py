@@ -27,7 +27,7 @@ from core.etabs import UNITS_LENGTH_CM, UNITS_FORCE_KGF, UNITS_TEMP_C
 from screens.column_data import ColumnDataScreen
 from screens.open_file import OpenFileWindow
 from screens.info_stories import InfoStoriesScreen
-from screens.info_gridlines import InfoGridLinesScreen
+from screens.info_gridlines_2 import InfoGridLinesScreen
 from screens.section_designer_2 import SectionDesignerScreen
 
 class Worker(QObject):
@@ -408,8 +408,14 @@ class MainMenuScreen(QMainWindow):
             self.info_stories_screen.hide()
             
         # Crear y esconder  InfoGridLinesScreen
+        ## Modificar gridlines_data
+        gridlines_list_info = []
+        for item in gridlines_data:
+            info = (str(item['GridLine']), item['pos_x'], item['pos_y'])
+            gridlines_list_info.append(info)
+            
         if not self.info_gridlines_screen:
-            self.info_gridlines_screen = InfoGridLinesScreen(gridlines_data, stories_with_elevations)
+            self.info_gridlines_screen = InfoGridLinesScreen(gridlines_list_info)
 
         # Creay y esconder SectionDesignerScreen
         if not self.section_designer_screen:

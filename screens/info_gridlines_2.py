@@ -1,4 +1,3 @@
-
 import sys
 import math
 import json
@@ -69,6 +68,53 @@ class OpenGLWidget(QOpenGLWidget):
         self.group_highlight_ids = group_ids
         self.update()
 
+    # ### INICIO DE CAMBIOS ###
+    def fit_to_screen(self):
+        """Ajusta el zoom y el paneo para centrar todas las columnas en la vista."""
+        if not self.columns:
+            # Resetea la vista si no hay columnas
+            self.pan_x = 0.0
+            self.pan_y = 0.0
+            self.zoom_factor = 1.0
+            self.update()
+            return
+
+        # Calcular el bounding box de todas las columnas
+        min_x = min(c.x for c in self.columns.values())
+        max_x = max(c.x for c in self.columns.values())
+        min_y = min(c.y for c in self.columns.values())
+        max_y = max(c.y for c in self.columns.values())
+
+        # Añadir un pequeño margen
+        padding = 20
+        bbox_width = (max_x - min_x) + padding * 2
+        bbox_height = (max_y - min_y) + padding * 2
+
+        if bbox_width == 0 or bbox_height == 0:
+            # Si solo hay un punto o todos están en la misma línea, evitar división por cero
+            bbox_width = max(bbox_width, 100)
+            bbox_height = max(bbox_height, 100)
+
+        # Centrar la vista en el centro del bounding box
+        center_x = min_x + (max_x - min_x) / 2
+        center_y = min_y + (max_y - min_y) / 2
+        self.pan_x = -center_x
+        self.pan_y = -center_y
+        
+        # Calcular el factor de zoom necesario para ajustar el bounding box
+        widget_w = self.width()
+        widget_h = self.height()
+        
+        if widget_w == 0 or widget_h == 0: return
+
+        zoom_x = widget_w / bbox_width
+        zoom_y = widget_h / bbox_height
+        
+        self.zoom_factor = min(zoom_x, zoom_y) * 0.95 # 0.95 para un pequeño margen extra
+
+        self.update() # Vuelve a dibujar la escena con la nueva vista
+    # ### FIN DE CAMBIOS ###
+
     def initializeGL(self):
         """Configuración inicial de OpenGL."""
         glClearColor(0.1, 0.1, 0.15, 1.0) # Fondo oscuro
@@ -85,15 +131,20 @@ class OpenGLWidget(QOpenGLWidget):
         glLoadIdentity()
         w = self.width()
         h = self.height()
+
+        # Prevenir división por cero
+        if self.zoom_factor == 0: self.zoom_factor = 1.0
+        if h == 0: h = 1 
         
-        view_height = h / self.zoom_factor
-        view_width = w / self.zoom_factor
+        view_height = self.height() / self.zoom_factor
+        view_width = self.width() / self.zoom_factor
         
-        glOrtho(-view_width / 2, view_width / 2, -view_height / 2, view_height / 2, -1, 1)
+        glOrtho(-view_width / 2.0, view_width / 2.0, -view_height / 2.0, view_height / 2.0, -1, 1)
 
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
         
+        # Aplicar paneo aquí
         glTranslated(self.pan_x, self.pan_y, 0)
         
         self._draw_axes()
@@ -170,7 +221,12 @@ class OpenGLWidget(QOpenGLWidget):
         """Dibuja los IDs de las columnas usando QPainter."""
         painter = QPainter(self)
         painter.beginNativePainting()
-        painter.endNativePainting()
+        # No es necesario llamar a endNativePainting() inmediatamente aquí.
+        # Se debe llamar después de haber configurado la transformación de OpenGL
+        gl_modelview_matrix = glGetDoublev(GL_MODELVIEW_MATRIX)
+        gl_projection_matrix = glGetDoublev(GL_PROJECTION_MATRIX)
+        gl_viewport = glGetIntegerv(GL_VIEWPORT)
+        painter.endNativePainting() # Fin de la pintura nativa para configurar QPainter
 
         painter.setPen(QColor(255, 255, 255))
         font = QFont()
@@ -178,9 +234,18 @@ class OpenGLWidget(QOpenGLWidget):
         painter.setFont(font)
 
         for col in self.columns.values():
-            window_pos = self.world_to_screen(col.x, col.y)
-            if window_pos:
-                painter.drawText(window_pos.x() + 10, window_pos.y() + 5, col.id)
+            # Usar gluProject para convertir coordenadas del mundo a pantalla
+            # Es más robusto que un cálculo manual
+            winX, winY, _ = gluProject(col.x, col.y, 0, 
+                                       gl_modelview_matrix, 
+                                       gl_projection_matrix, 
+                                       gl_viewport)
+            
+            # La coordenada Y de OpenGL va de abajo hacia arriba, QPainter de arriba hacia abajo
+            winY = gl_viewport[3] - winY 
+            
+            if winX is not None and winY is not None:
+                painter.drawText(QPoint(int(winX) + 10, int(winY) + 5), col.id)
         
         painter.end()
 
@@ -204,7 +269,7 @@ class OpenGLWidget(QOpenGLWidget):
             self.zoom_factor *= 1.1
         else:
             self.zoom_factor /= 1.1
-        self.zoom_factor = max(0.1, min(self.zoom_factor, 10.0))
+        self.zoom_factor = max(0.01, min(self.zoom_factor, 100.0))
         self.update()
 
     def mousePressEvent(self, event):
@@ -259,13 +324,9 @@ class GroupManagerDialog(QDialog):
         self.columns = columns
         self.groups = groups 
         
-        # Layout principal vertical para todo el diálogo
         dialog_layout = QVBoxLayout(self)
-
-        # Layout horizontal para las listas y botones de acción
         lists_layout = QHBoxLayout()
         
-        # Panel izquierdo: Lista de grupos
         left_panel = QVBoxLayout()
         left_panel.addWidget(QLabel("Grupos Existentes"))
         self.group_list_widget = QListWidget()
@@ -276,7 +337,6 @@ class GroupManagerDialog(QDialog):
         left_panel.addWidget(new_group_button)
         lists_layout.addLayout(left_panel)
         
-        # Panel central: Botones para mover columnas
         mid_panel = QVBoxLayout()
         mid_panel.addStretch()
         add_button = QPushButton(">>")
@@ -288,7 +348,6 @@ class GroupManagerDialog(QDialog):
         mid_panel.addStretch()
         lists_layout.addLayout(mid_panel)
         
-        # Panel derecho: Listas de columnas
         right_panel = QVBoxLayout()
         right_panel.addWidget(QLabel("Columnas en Grupo"))
         self.in_group_list = QListWidget()
@@ -298,20 +357,15 @@ class GroupManagerDialog(QDialog):
         right_panel.addWidget(self.out_group_list)
         lists_layout.addLayout(right_panel)
         
-        # Se añade el layout de las listas al layout principal
         dialog_layout.addLayout(lists_layout)
         
-        # Botones de Aceptar/Cancelar
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
-        
-        # Se añaden los botones al layout principal
         dialog_layout.addWidget(self.button_box)
         
         self.refresh_groups()
 
-        # Seleccionar el primer grupo por defecto para mejorar la UX
         if self.group_list_widget.count() > 0:
             self.group_list_widget.setCurrentRow(0)
 
@@ -323,19 +377,13 @@ class GroupManagerDialog(QDialog):
     def update_column_lists(self):
         self.in_group_list.clear()
         self.out_group_list.clear()
-
-        # 1. Determinar qué columnas están asignadas a cualquier grupo.
         assigned_in_any_group = set()
         for group_cols in self.groups.values():
             assigned_in_any_group.update(group_cols)
-            
-        # 2. Rellenar la lista de "sin asignar".
         all_col_ids = set(self.columns.keys())
         unassigned_cols = all_col_ids - assigned_in_any_group
         for col_id in sorted(list(unassigned_cols)):
             self.out_group_list.addItem(col_id)
-            
-        # 3. Si hay un grupo seleccionado, rellenar la lista de "en grupo".
         selected_items = self.group_list_widget.selectedItems()
         if selected_items:
             selected_group_id = selected_items[0].text()
@@ -376,21 +424,27 @@ class GroupManagerDialog(QDialog):
 
 # --- Ventana Principal de la Aplicación ---
 
-class SectionDesignerScreen(QMainWindow):
-    def __init__(self):
+class InfoGridLinesScreen(QMainWindow):
+    datos_para_renombrar = pyqtSignal(dict)
+    def __init__(self, gridlines_data):
+        """
+        Constructor que inicializa la ventana.
+        
+        Args:
+            gridlines_data (list): Una lista de tuplas, donde cada tupla representa una columna
+                                 con el formato (id_str, x_float, y_float).
+        """
         super().__init__()
         self.setWindowTitle("Visor de Columnas 2D")
         self.setGeometry(100, 100, 1200, 800)
-
-        # Nombre del archivo para guardar y cargar datos
-        self.save_file = "layout_data.json"
 
         self.columns = {} 
         self.groups = {} 
         self.column_counter = 0
 
         self._setup_ui()
-        self._load_data_from_file()
+        self._populate_from_initial_data(gridlines_data)
+
 
     def _setup_ui(self):
         self.central_widget = QWidget()
@@ -401,7 +455,6 @@ class SectionDesignerScreen(QMainWindow):
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         
-        # Tabla de columnas
         self.table = QTableWidget()
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(["ID", "Coordenada X", "Coordenada Y"])
@@ -410,17 +463,22 @@ class SectionDesignerScreen(QMainWindow):
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         left_layout.addWidget(self.table)
         
-        # Botones de control
         table_buttons_layout = QHBoxLayout()
         add_button = QPushButton("Añadir Columna")
         remove_button = QPushButton("Eliminar Columna")
         table_buttons_layout.addWidget(add_button)
         table_buttons_layout.addWidget(remove_button)
         left_layout.addLayout(table_buttons_layout)
+        
+        # ### INICIO DE CAMBIOS ###
+        extra_buttons_layout = QHBoxLayout()
         group_button = QPushButton("Gestionar Grupos")
-        left_layout.addWidget(group_button)
+        fit_view_button = QPushButton("Centrar Vista") # Nuevo botón
+        extra_buttons_layout.addWidget(group_button)
+        extra_buttons_layout.addWidget(fit_view_button)
+        left_layout.addLayout(extra_buttons_layout)
+        # ### FIN DE CAMBIOS ###
 
-        # NUEVO: Tabla resumen de grupos
         left_layout.addWidget(QLabel("Resumen de Grupos"))
         self.groups_table = QTableWidget()
         self.groups_table.setColumnCount(2)
@@ -431,74 +489,40 @@ class SectionDesignerScreen(QMainWindow):
         self.groups_table.setSelectionMode(QAbstractItemView.NoSelection)
         left_layout.addWidget(self.groups_table)
         
-        # Panel Derecho con OpenGL
         self.gl_widget = OpenGLWidget()
         
         splitter.addWidget(left_panel)
         splitter.addWidget(self.gl_widget)
-        splitter.setSizes([400, 800]) # Ajustar tamaño inicial
+        splitter.setSizes([400, 800])
 
-        # Conexiones
         add_button.clicked.connect(self.add_column)
         remove_button.clicked.connect(self.remove_column)
         group_button.clicked.connect(self.manage_groups)
+        # ### INICIO DE CAMBIOS ###
+        fit_view_button.clicked.connect(self.gl_widget.fit_to_screen) # Conectar la señal del botón
+        # ### FIN DE CAMBIOS ###
         self.table.itemChanged.connect(self.update_column_from_table)
         self.table.itemSelectionChanged.connect(self.update_selection_from_table)
         self.gl_widget.column_clicked_signal.connect(self.rename_column)
         self.gl_widget.selection_changed_by_click_signal.connect(self.update_selection_from_gl)
 
-    def _load_sample_data(self):
-        """Carga datos de ejemplo si no hay archivo de guardado."""
-        sample_cols = [
-            ("C-1", 100, 50), ("C-2", 250, 150), ("C-3", 100, 250),
-            ("C-4", -50, -80), ("C-5", -150, 100),
-        ]
-        for cid, x, y in sample_cols:
-            self._create_column(cid, x, y, refresh_ui=False)
-        self.refresh_ui()
-
-    def _load_data_from_file(self):
-        """Carga el estado de las columnas y grupos desde un archivo JSON."""
-        if not os.path.exists(self.save_file):
-            self._load_sample_data()
+    def _populate_from_initial_data(self, gridlines_data):
+        """Puebla las columnas iniciales a partir de la lista de datos."""
+        if not isinstance(gridlines_data, list):
+            print("Warning: gridlines_data no es una lista. No se cargarán columnas.")
             return
-        
-        try:
-            with open(self.save_file, 'r') as f:
-                data = json.load(f)
             
-            self.columns.clear()
-            for col_data in data.get("columns", []):
-                col = Column(col_data['id'], col_data['x'], col_data['y'], col_data.get('group_id'))
-                self.columns[col.id] = col
-                
-            self.groups = data.get("groups", {})
-            self.column_counter = data.get("column_counter", 0)
-
-            self.refresh_ui()
-            print(f"Datos cargados desde {self.save_file}")
-
-        except (json.JSONDecodeError, KeyError) as e:
-            QMessageBox.warning(self, "Error al cargar", f"No se pudo cargar el archivo de datos: {e}\nSe usarán datos de ejemplo.")
-            self._load_sample_data()
-
-    def _save_data_to_file(self):
-        """Guarda el estado actual de columnas y grupos en un archivo JSON."""
-        data_to_save = {
-            "column_counter": self.column_counter,
-            "groups": self.groups,
-            "columns": [
-                {"id": col.id, "x": col.x, "y": col.y, "group_id": col.group_id}
-                for col in self.columns.values()
-            ]
-        }
+        for item in gridlines_data:
+            try:
+                cid, x, y = item
+                self._create_column(cid, x, y, refresh_ui=False)
+            except (ValueError, TypeError) as e:
+                print(f"Warning: Saltando item de datos con formato incorrecto: {item} ({e})")
         
-        try:
-            with open(self.save_file, 'w') as f:
-                json.dump(data_to_save, f, indent=4)
-            print(f"Datos guardados en {self.save_file}")
-        except Exception as e:
-            QMessageBox.critical(self, "Error al guardar", f"No se pudieron guardar los datos: {e}")
+        self.refresh_ui()
+        # ### INICIO DE CAMBIOS ###
+        self.gl_widget.fit_to_screen() # Centrar la vista después de cargar los datos
+        # ### FIN DE CAMBIOS ###
 
     def refresh_table(self):
         self.table.blockSignals(True)
@@ -513,16 +537,12 @@ class SectionDesignerScreen(QMainWindow):
         self.table.blockSignals(False)
     
     def refresh_groups_table(self):
-        """Sincroniza la tabla de resumen de grupos con el diccionario de grupos."""
-        self.groups_table.setRowCount(0) # Limpiar tabla
+        self.groups_table.setRowCount(0)
         self.groups_table.setRowCount(len(self.groups))
-        
         sorted_group_ids = sorted(self.groups.keys())
-        
         for row, group_id in enumerate(sorted_group_ids):
             col_ids = self.groups[group_id]
             columns_text = ", ".join(sorted(col_ids))
-            
             self.groups_table.setItem(row, 0, QTableWidgetItem(group_id))
             self.groups_table.setItem(row, 1, QTableWidgetItem(columns_text))
 
@@ -530,10 +550,9 @@ class SectionDesignerScreen(QMainWindow):
         self.gl_widget.set_data(self.columns)
 
     def refresh_ui(self):
-        """Actualiza todos los componentes de la UI que dependen de los datos."""
         self.refresh_table()
         self.refresh_gl_widget()
-        self.refresh_groups_table() # Actualizar tabla de grupos
+        self.refresh_groups_table()
         self.update_selection_from_table()
         
     def _get_selected_row_id(self):
@@ -550,7 +569,10 @@ class SectionDesignerScreen(QMainWindow):
         self.columns[col_id] = new_col
         id_num_str = ''.join(filter(str.isdigit, col_id))
         if id_num_str:
-            self.column_counter = max(self.column_counter, int(id_num_str))
+            try:
+                self.column_counter = max(self.column_counter, int(id_num_str))
+            except ValueError:
+                pass # Ignorar si la parte numérica no es un entero válido
 
         if refresh_ui:
             self.refresh_ui()
@@ -580,6 +602,9 @@ class SectionDesignerScreen(QMainWindow):
                 if col_id in self.groups[group_id]: self.groups[group_id].remove(col_id)
                 if not self.groups[group_id]: del self.groups[group_id]
             self.refresh_ui()
+            # ### INICIO DE CAMBIOS ###
+            self.gl_widget.fit_to_screen() # Re-centrar la vista después de eliminar un punto
+            # ### FIN DE CAMBIOS ###
     
     def update_column_from_table(self, item):
         row, col_index = item.row(), item.column()
@@ -638,6 +663,28 @@ class SectionDesignerScreen(QMainWindow):
                  self.gl_widget.selected_column_id = new_id
             self.refresh_ui()
             self.update_selection_from_gl(new_id)
+            
+    def _emitir_datos_mapeo(self):
+        print('modificar nombres GriLines')
+        mapa = {}
+        for fila in range(self.table_gridlines_info.rowCount()):
+            item_original = self.table_gridlines_info.item(fila, 0)
+            item_nuevo = self.table_gridlines_info.item(fila,3)
+           
+        
+            # Asegurarse de que ambas celdas tengan texto
+            if item_original and item_original.text() and item_nuevo and item_nuevo.text():
+                valor_original = item_original.text().strip()
+                valor_nuevo = item_nuevo.text().strip()
+                 # Cambiar en la tabla y borrar nuevo valor
+                self.table_gridlines_info.item(fila,0).setText(item_nuevo.text())
+                self.table_gridlines_info.item(fila,3).setText("")
+            
+                if valor_original:
+                    mapa[valor_original] = valor_nuevo
+            
+        # Emitir la senal con el diccionario como payload
+        self.datos_para_renombrar.emit(mapa)
 
     def manage_groups(self):
         if len(self.columns) < 2:
@@ -656,5 +703,5 @@ class SectionDesignerScreen(QMainWindow):
 
     def closeEvent(self, event):
         """Se llama cuando la ventana está a punto de cerrarse."""
-        self._save_data_to_file()
+        # Se eliminó la llamada a _save_data_to_file()
         super().closeEvent(event)
