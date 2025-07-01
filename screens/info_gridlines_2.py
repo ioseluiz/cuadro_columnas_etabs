@@ -195,8 +195,16 @@ class OpenGLWidget(QOpenGLWidget):
     def _draw_highlights(self):
         """Dibuja círculos de resaltado para la selección y el grupo."""
         for group_col_id in self.group_highlight_ids:
+            print(f"group_col_id: {group_col_id}")
             if group_col_id in self.columns and group_col_id != self.selected_column_id:
                 col = self.columns[group_col_id]
+                print(f"col: {col.id}, x: {col.x}, y: {col.y}")
+                print(f"type col id: {type(col.id)}")
+                print(f"type col x: {type(col.x)}")
+                print(f"type col y: {type(col.y)}")
+                
+                print(self.columns)
+                print(self.selection_radius)
                 self._draw_circle(col.x, col.y, self.selection_radius, (1.0, 0.6, 0.0))
 
         if self.selected_column_id and self.selected_column_id in self.columns:
@@ -206,14 +214,19 @@ class OpenGLWidget(QOpenGLWidget):
 
     def _draw_circle(self, cx, cy, r, color):
         """Función auxiliar para dibujar un círculo."""
+        scaled_r = r / self.zoom_factor
+
         num_segments = 30
-        glLineWidth(2.0)
+        glLineWidth(2.0)  # Puedes hacer esto también escalado si quieres: 2.0 / self.scale
         glColor3f(*color)
         glBegin(GL_LINE_LOOP)
         for i in range(num_segments):
             theta = 2.0 * math.pi * i / num_segments
-            x = r * math.cos(theta)
-            y = r * math.sin(theta)
+            
+            # Usamos el radio escalado para calcular las posiciones de los vértices
+            x = scaled_r * math.cos(theta)
+            y = scaled_r * math.sin(theta)
+            
             glVertex2f(x + cx, y + cy)
         glEnd()
 
@@ -623,13 +636,28 @@ class InfoGridLinesScreen(QMainWindow):
         self.refresh_gl_widget()
 
     def update_selection_from_table(self):
-        col_id = self._get_selected_row_id()
+        selected_col_id = self._get_selected_row_id()
+        
+        # Incializa una lista vacía para los IDs a resaltar.
         group_ids_to_highlight = []
-        if col_id:
-            col_obj = self.columns.get(col_id)
-            if col_obj and col_obj.group_id:
-                group_ids_to_highlight = self.groups.get(col_obj.group_id, [])
-        self.gl_widget.set_selection(col_id, group_ids_to_highlight)
+        
+        if selected_col_id:
+            # Busca a qué grupo pertenece la columna seleccionada.
+            # Esto es más robusto que depender del atributo 'group_id' del objeto de la columna.
+            found_group = None
+            for group_id, member_ids in self.groups.items():
+                if selected_col_id in member_ids:
+                    found_group = group_id
+                    break
+            
+            # Si la columna está en un grupo, obtén todos los miembros de ese grupo para resaltarlos.
+            if found_group:
+                group_ids_to_highlight = self.groups.get(found_group, [])
+                # Para depuración: imprime el grupo que se está resaltando.
+                print(f"Resaltando el grupo '{found_group}': {group_ids_to_highlight}")
+                
+        # Pasa la selección y la lista de miembros del grupo al widget de OpenGL.
+        self.gl_widget.set_selection(selected_col_id, group_ids_to_highlight)
         
     def update_selection_from_gl(self, col_id):
         if self._get_selected_row_id() == col_id:
