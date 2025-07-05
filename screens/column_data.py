@@ -246,6 +246,14 @@ class ColumnDataScreen(QWidget):
         self.table_rectangular_armado.resizeColumnsToContents()
         # self.table_rectangular_armado.resizeRowToContents()
         
+        group_column_index = 24
+        self.table_rectangular_armado.setColumnWidth(group_column_index, 250) # Establece un ancho de 150 píxeles (ajusta este valor si es necesario)
+        
+        
+        # Pasamos la referencia de la tabla a la ventana de gridlines para que el diálogo de grupos pueda acceder a ella.
+        if self.gridlines_window_ref:
+            self.gridlines_window_ref.set_main_column_table(self.table_rectangular_armado)
+        
         
         # self.table_rectangular_resultados = QTableWidget(5, 4)
         # self.table_rectangular_resultados.setHorizontalHeaderLabels(["CONF...", "ID Ramas vert.", "CONF...", "ID Ramas horiz."])

@@ -312,30 +312,86 @@ class OpenGLWidget(QOpenGLWidget):
             self.pan_y -= delta.y() / self.zoom_factor
             self.last_mouse_pos = event.pos()
             self.update()
+            
+    def set_columns_data(self, columns_data):
+        """
+        Método público para recibir nuevos datos de columnas,
+        actualizar el estado interno y forzar un redibujado completo.
+        """
+        self.columns = columns_data
+        
+        # Aquí puedes añadir cualquier lógica que necesites para 
+        # "re-compilar" los datos para OpenGL, si la tuvieras.
+        # Por ejemplo, regenerar texturas de texto, VBOs, etc.
+        
+        # Finalmente, solicita la actualización del pintado.
+        self.update()
 
 class RenameDialog(QDialog):
     """Diálogo para renombrar el ID de una columna."""
-    def __init__(self, current_id, parent=None):
+    def __init__(self, old_name, main_column_table,parent=None):
         super().__init__(parent)
         self.setWindowTitle("Renombrar Columna")
-        self.layout = QFormLayout(self)
-        self.new_id_input = QLineEdit(current_id)
-        self.layout.addRow(f"Nuevo ID para '{current_id}':", self.new_id_input)
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.button_box.accepted.connect(self.accept)
-        self.button_box.rejected.connect(self.reject)
-        self.layout.addWidget(self.button_box)
-    def get_new_id(self):
-        return self.new_id_input.text().strip()
+        self.old_name = old_name
+        self.new_name = old_name
+        self.main_column_table = main_column_table # Guardamos la referencia a la tabla principal
+        
+        self.name_edit = QLineEdit(old_name)
+        rename_button = QPushButton("Renombrar")
+        cancel_button = QPushButton("Cancelar")
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Nuevo nombre:"))
+        layout.addWidget(self.name_edit)
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(rename_button)
+        button_layout.addWidget(cancel_button)
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
+
+        rename_button.clicked.connect(self.accept)
+        cancel_button.clicked.connect(self.reject)
+        
+        # self.layout = QFormLayout(self)
+        # self.new_id_input = QLineEdit(current_id)
+        # self.layout.addRow(f"Nuevo ID para '{current_id}':", self.new_id_input)
+        # self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        # self.button_box.accepted.connect(self.accept)
+        # self.button_box.rejected.connect(self.reject)
+        # self.layout.addWidget(self.button_box)
+       
+    def textValue(self):
+         return self.new_name
+ 
+    def accept(self):
+        self.new_name = self.name_edit.text()
+         
+        # >>> INICIO DE LA MODIFICACIÓN <<<
+        if self.old_name != self.new_name and self.main_column_table:
+            table = self.main_column_table
+            GRIDLINE_COL_IDX = 1
+            for row in range(table.rowCount()):
+                item = table.item(row, GRIDLINE_COL_IDX)
+                if item and item.text() == self.old_name:
+                    item.setText(self.new_name)
+                     
+        
+        super().accept()
+    
+        
+        
+    # def get_new_id(self):
+    #     return self.new_id_input.text().strip()
 
 class GroupManagerDialog(QDialog):
     """Diálogo para crear y asignar columnas a grupos."""
-    def __init__(self, columns, groups, parent=None):
+    def __init__(self, columns, groups,main_column_table, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Gestor de Grupos")
         self.setMinimumSize(500, 400)
         self.columns = columns
-        self.groups = groups 
+        self.groups = groups
+        self.main_column_table = main_column_table # Referencia de tabla en ventana principal
         
         dialog_layout = QVBoxLayout(self)
         lists_layout = QHBoxLayout()
@@ -423,7 +479,13 @@ class GroupManagerDialog(QDialog):
         for g_id, cols in self.groups.items():
             if col_id in cols: cols.remove(col_id)
         self.groups[group_id].append(col_id)
+        
+        # Lógica para actualizar la tabla principal
+        self.update_main_table(col_id, group_id)
+        
         self.update_column_lists()
+        
+        
         
     def remove_column_from_group(self):
         selected_group_items = self.group_list_widget.selectedItems()
@@ -433,7 +495,33 @@ class GroupManagerDialog(QDialog):
         col_id = selected_col_items[0].text()
         if col_id in self.groups.get(group_id, []):
             self.groups[group_id].remove(col_id)
+            
+            # Lógica para limpiar la celda en la tabla principal
+            self.update_main_table(col_id, "") # Pasa un string vacío para limpiar
+            
             self.update_column_lists()
+            
+    def update_main_table(self, gridline_id, group_name):
+        """Busca en la tabla principal las filas que coinciden con el gridline_id y actualiza su grupo."""
+        if not self.main_column_table:
+            return
+
+        table = self.main_column_table
+        # Basado en column_data.py, "GridLine" es la columna 1 y "Group" es la 24 (índices 1 y 24)
+        GRIDLINE_COL_IDX = 1
+        GROUP_COL_IDX = 24
+
+        for row in range(table.rowCount()):
+            gridline_item = table.item(row, GRIDLINE_COL_IDX)
+            if gridline_item and gridline_item.text() == gridline_id:
+                group_item = table.item(row, GROUP_COL_IDX)
+                if not group_item:
+                    # Si no existe el QTableWidgetItem en la celda "Group", lo creamos
+                    group_item = QTableWidgetItem(group_name)
+                    table.setItem(row, GROUP_COL_IDX, group_item)
+                else:
+                    # Si ya existe, solo actualizamos el texto
+                    group_item.setText(group_name)
 
 # --- Ventana Principal de la Aplicación ---
 
@@ -454,6 +542,7 @@ class InfoGridLinesScreen(QMainWindow):
         self.columns = {} 
         self.groups = {} 
         self.column_counter = 0
+        self.main_column_table = None # Añadir atributo para la tabla
 
         self._setup_ui()
         self._populate_from_initial_data(gridlines_data)
@@ -483,14 +572,14 @@ class InfoGridLinesScreen(QMainWindow):
         table_buttons_layout.addWidget(remove_button)
         left_layout.addLayout(table_buttons_layout)
         
-        # ### INICIO DE CAMBIOS ###
+        
         extra_buttons_layout = QHBoxLayout()
         group_button = QPushButton("Gestionar Grupos")
         fit_view_button = QPushButton("Centrar Vista") # Nuevo botón
         extra_buttons_layout.addWidget(group_button)
         extra_buttons_layout.addWidget(fit_view_button)
         left_layout.addLayout(extra_buttons_layout)
-        # ### FIN DE CAMBIOS ###
+       
 
         left_layout.addWidget(QLabel("Resumen de Grupos"))
         self.groups_table = QTableWidget()
@@ -672,25 +761,59 @@ class InfoGridLinesScreen(QMainWindow):
         self.table.blockSignals(False)
         self.update_selection_from_table()
 
-    def rename_column(self, old_id):
-        dialog = RenameDialog(old_id, self)
+    def rename_column(self, old_name):
+        """
+        Renombra una columna. Es invocado por una señal desde el visor OpenGL 
+        cuando se hace doble clic en una columna.
+        """
+        if not isinstance(old_name, str):
+            return
+
+        dialog = RenameDialog(old_name, self.main_column_table, self)
+        
         if dialog.exec_():
-            new_id = dialog.get_new_id()
-            if not new_id or new_id == old_id: return
-            if new_id in self.columns:
-                QMessageBox.warning(self, "Error", f"El ID '{new_id}' ya existe.")
+            new_name = dialog.textValue()
+            if not new_name or new_name == old_name:
+                return # Salir si el nombre está vacío o no ha cambiado
+            
+            if new_name in self.columns:
+                QMessageBox.warning(self, "Error", f"El ID '{new_name}' ya existe.")
                 return
-            col_obj = self.columns.pop(old_id)
-            col_obj.id = new_id
-            self.columns[new_id] = col_obj
+
+            # --- INICIO DE LA LÓGICA CORREGIDA ---
+
+            # 1. Actualizar la tabla de esta pantalla (self.table)
+            ID_COLUMN_INDEX = 0
+            for row in range(self.table.rowCount()):
+                item = self.table.item(row, ID_COLUMN_INDEX)
+                if item and item.text() == old_name:
+                    self.table.blockSignals(True)
+                    item.setText(new_name)
+                    self.table.blockSignals(False)
+                    break
+
+            # 2. Actualizar la estructura de datos interna 'self.columns'
+            # Sacamos el objeto del diccionario usando el nombre antiguo
+            col_obj = self.columns.pop(old_name) 
+            # ¡Aquí está la magia! Actualizamos el atributo del objeto
+            col_obj.id = new_name 
+            # Lo volvemos a insertar en el diccionario con la nueva llave
+            self.columns[new_name] = col_obj 
+
+            # 3. Actualizar la estructura de datos interna 'self.groups'
             for group_id, cols in self.groups.items():
-                if old_id in cols:
-                    cols.remove(old_id)
-                    cols.append(new_id)
-            if self.gl_widget.selected_column_id == old_id:
-                 self.gl_widget.selected_column_id = new_id
-            self.refresh_ui()
-            self.update_selection_from_gl(new_id)
+                if old_name in cols:
+                    cols.remove(old_name)
+                    cols.append(new_name)
+            
+            # 4. Refrescar el visor 2D y la tabla de resumen de grupos
+            self.gl_widget.set_columns_data(self.columns)
+            self.refresh_groups_table()
+
+            # 5. (Opcional pero recomendado) Actualizar la selección si la columna renombrada estaba seleccionada
+            if self.gl_widget.selected_column_id == old_name:
+                self.update_selection_from_gl(new_name)
+        
             
     def _emitir_datos_mapeo(self):
         print('modificar nombres GriLines')
@@ -713,13 +836,17 @@ class InfoGridLinesScreen(QMainWindow):
             
         # Emitir la senal con el diccionario como payload
         self.datos_para_renombrar.emit(mapa)
-
+        
+    def set_main_column_table(self, table: QTableWidget):
+        """Recibe y almacena la referencia a la QTableWidget de la pantalla de datos de columnas."""
+        self.main_column_table = table
+    
     def manage_groups(self):
         if len(self.columns) < 2:
             QMessageBox.information(self, "Información", "Necesita al menos dos columnas para crear grupos.")
             return
-
-        dialog = GroupManagerDialog(self.columns, copy.deepcopy(self.groups), self)
+        
+        dialog = GroupManagerDialog(self.columns, copy.deepcopy(self.groups),self.main_column_table, self)
         if dialog.exec_():
             self.groups = dialog.groups
             for col in self.columns.values(): col.group_id = None 
@@ -728,6 +855,8 @@ class InfoGridLinesScreen(QMainWindow):
                     if col_id in self.columns:
                         self.columns[col_id].group_id = group_id
             self.refresh_ui()
+            
+    
 
     def closeEvent(self, event):
         """Se llama cuando la ventana está a punto de cerrarse."""
