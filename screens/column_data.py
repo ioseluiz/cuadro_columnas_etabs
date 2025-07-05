@@ -101,11 +101,11 @@ class ColumnDataScreen(QWidget):
         group_rectangular_layout = QVBoxLayout()
         lbl_rectangular_armado = QLabel("[Rectangular] Armado transversal")
         lbl_rectangular_resultados = QLabel("[Rectangular] Resultados")
-        self.table_rectangular_armado = QTableWidget(len(column_data), 24) # Filas, Columnas de ejemplo
+        self.table_rectangular_armado = QTableWidget(len(column_data), 25) # Filas, Columnas de ejemplo
         self.table_rectangular_armado.setHorizontalHeaderLabels(["Story","GridLine","Frame_id","Start Z", "End Z" ,"Label","Sección", "depth","width",
                                                                  "Material", "Long. R2 Bars", "Long. R3 Bars","Rebar",
                                                                  "Mat. Est.","Rebar. Est.","Cover","Detalle No.","bxh","As",
-                                                                 "fc","Rebar Estribo", "nivel start", "nivel end","start_end_level"])
+                                                                 "fc","Rebar Estribo", "nivel start", "nivel end","start_end_level","Group"])
         
         print(column_data[0].keys())
         print(column_data[0])
@@ -237,6 +237,10 @@ class ColumnDataScreen(QWidget):
              # Col 23: start end level
             item_end_level = QTableWidgetItem(col['start_end_level'])
             self.table_rectangular_armado.setItem(col_idx, 23,item_end_level)
+            
+            # Col 24: Column Group
+            item_col_group = QTableWidgetItem()
+            self.table_rectangular_armado.setItem(col_idx, 24, item_col_group)
             
             
         self.table_rectangular_armado.resizeColumnsToContents()
