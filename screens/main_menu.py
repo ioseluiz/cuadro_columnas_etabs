@@ -62,7 +62,7 @@ class Worker(QObject):
         rectangular_sections = etabs.get_rectangular_concrete_sections(self.sap_model)
         sections = []
         rebars = []
-        print("Rectangular Sections...")
+        print("*****Rectangular Sections*****")
         print(rectangular_sections)
         for item in rectangular_sections:
             print(item['section'])
@@ -418,8 +418,10 @@ class MainMenuScreen(QMainWindow):
             self.info_gridlines_screen = InfoGridLinesScreen(gridlines_list_info)
 
         # Creay y esconder SectionDesignerScreen
+        print("---Rectangular Sections-----Main menu-\n")
+        print(rectangular_sections)
         if not self.section_designer_screen:
-            self.section_designer_screen = SectionDesignerScreen(rectangular_sections)
+            self.section_designer_screen = SectionDesignerScreen(sections_data=rectangular_sections)
             
             self.info_gridlines_screen.hide()
         # Crear y mostrar ColumnDataScreen

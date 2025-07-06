@@ -185,12 +185,12 @@ def get_rect_concrete_sections(sap_model):
             # no se puede consultar con GetRectangle (secciones importadas extranas o nulas)
             continue
 
-        if not secciones_rect_concreto:
-            print("No se encontraron secciones rectangulares de concreto.")
-        else:
-            print(
-                f"\nTotal de secciones rectangulares de concreto encontradas: {len(secciones_rect_concreto)}"
-            )
+    if not secciones_rect_concreto:
+        print("No se encontraron secciones rectangulares de concreto.")
+    else:
+        print(
+            f"\nTotal de secciones rectangulares de concreto encontradas: {len(secciones_rect_concreto)}"
+        )
 
     return secciones_rect_concreto
 
@@ -595,100 +595,150 @@ def clasificar_punto_por_elevacion(lista_niveles, elevacion_punto):
     return None
 
 
-def get_rectangular_concrete_sections(SapModel):
+# def get_rectangular_concrete_sections(SapModel):
+#     print("--Inicio Metodo get_rectangular_concrete_sections--")
+#     """
+#     Analiza un modelo de ETABS y extrae las propiedades de todas las secciones
+#     de marco de concreto rectangulares con refuerzo de columna definido.
+
+#     Args:
+#         SapModel: El objeto SapModel activo de la API de ETABS.
+
+#     Returns:
+#         list: Una lista de diccionarios, donde cada diccionario representa una
+#               sección única y contiene sus propiedades de diseño.
+#               Devuelve una lista vacía si no se encuentran secciones o si
+#               ocurre un error.
+#     """
+    
+#     secciones_rectangulares = get_rect_concrete_sections(SapModel)
+#     print(secciones_rectangulares)
+#     nombres_secciones_rectangulares = [x['Nombre'] for x in secciones_rectangulares]
+    
+#     # Diccionario para convertir el nombre de la barra a su diámetro en pulgadas
+#     # ETABS usualmente maneja estos tamaños internamente
+#     BAR_DIAMETERS_IN = {
+#         '#2': 0.250, '#3': 0.375, '#4': 0.500, '#5': 0.625, '#6': 0.750,
+#         '#7': 0.875, '#8': 1.000, '#9': 1.128, '#10': 1.270,
+#         '#11': 1.410, '#14': 1.875, '#18': 2.257
+#     }
+
+#     # Acceder a los objetos de la API para propiedades y secciones
+#     PropFrame = SapModel.PropFrame
+    
+#     sections_list = []
+#     processed_sections = set() # Para evitar duplicados
+
+#     # 1. Obtener la lista de todos los nombres de secciones de marco definidos
+#     try:
+#         all_sections_names = PropFrame.GetNameList()
+#     except Exception as e:
+#         print(f"Error al obtener la lista de secciones: {e}")
+#         return []
+
+#     print(f"Analizando {len(all_sections_names)} secciones definidas en el modelo...")
+
+#     # 2. Iterar sobre cada sección
+#     for section_name in nombres_secciones_rectangulares:
+#         if section_name not in processed_sections:
+            
+
+#             try:
+#                 # 3. Filtrar: Intentar obtener propiedades de sección rectangular
+#                 # Si esto falla, no es una sección rectangular y el 'except' la ignorará.
+#                 file_name, mat_prop, t3, t2, _, _, _, _ = PropFrame.GetRectangle(section_name)
+
+#                 # 4. Filtrar: Intentar obtener datos de refuerzo de columna.
+#                 # Si falla, no es una sección de columna o no tiene refuerzo definido.
+#                 rebar_info = PropFrame.GetRebarColumn(section_name)
+                
+#                 # Desempacar la información de refuerzo obtenida
+#                 mat_long, mat_conf, pattern, confine_type, clear_cover, \
+#                 num_bars_3, num_bars_2, rebar_size, stirrup_size, _, _, _, _ = rebar_info
+
+#                 # Solo procesar si el patrón de refuerzo es rectangular
+#                 if pattern != 1: # 1 = Patrón Rectangular
+#                     continue
+
+#                 # 5. Calcular propiedades requeridas
+                
+#                 # Obtener el diámetro del estribo para calcular el recubrimiento a la barra long.
+#                 stirrup_diameter = BAR_DIAMETERS_IN.get(stirrup_size, 0)
+                
+#                 # El recubrimiento de la API es hasta el estribo. Se ajusta para que sea
+#                 # hasta el borde de la barra longitudinal, que es una métrica común.
+#                 cover_to_long_bar = clear_cover + stirrup_diameter
+
+#                 # Asumir el número de ganchos como el número de barras internas
+#                 num_crossties_2 = max(0, num_bars_2 - 2)
+#                 num_crossties_3 = max(0, num_bars_3 - 2)
+
+#                 # 6. Construir el diccionario con los datos de la sección
+#                 section_data = {
+#                     "section": section_name,
+#                     "h": t3,  # Altura (Depth)
+#                     "b": t2,  # Ancho (Width)
+#                     "cover": cover_to_long_bar,
+#                     "rebar_size": rebar_size,
+#                     "num_bars_3": num_bars_3, # Barras en la dirección del ancho 'b'
+#                     "num_bars_2": num_bars_2, # Barras en la dirección de la altura 'h'
+#                     "stirrup_size": stirrup_size,
+#                     "num_crossties_2": num_crossties_2,
+#                     "num_crossties_3": num_crossties_3
+#                 }
+
+#                 # 7. Añadir el diccionario a la lista de resultados
+#                 sections_list.append(section_data)
+#                 processed_sections.add(section_name)
+
+#             except Exception:
+#                 # Si ocurre cualquier error, significa que la sección no es una
+#                 # columna de concreto rectangular con refuerzo definido. Simplemente la ignoramos.
+#                 print("Error..")
+            
+#     print(f"\nSe encontraron y procesaron {len(sections_list)} secciones de columna de concreto rectangulares.")
+#     return sections_list
+
+def get_rectangular_concrete_sections(sapModel):
     """
-    Analiza un modelo de ETABS y extrae las propiedades de todas las secciones
-    de marco de concreto rectangulares con refuerzo de columna definido.
+    Extrae todas las secciones transversales rectangulares de concreto de un modelo de ETABS.
 
     Args:
-        SapModel: El objeto SapModel activo de la API de ETABS.
+        sapModel: El objeto COM de ETABS.
 
     Returns:
         list: Una lista de diccionarios, donde cada diccionario representa una
-              sección única y contiene sus propiedades de diseño.
-              Devuelve una lista vacía si no se encuentran secciones o si
-              ocurre un error.
+              sección transversal rectangular de concreto.
     """
-    # Diccionario para convertir el nombre de la barra a su diámetro en pulgadas
-    # ETABS usualmente maneja estos tamaños internamente
-    BAR_DIAMETERS_IN = {
-        '#2': 0.250, '#3': 0.375, '#4': 0.500, '#5': 0.625, '#6': 0.750,
-        '#7': 0.875, '#8': 1.000, '#9': 1.128, '#10': 1.270,
-        '#11': 1.410, '#14': 1.875, '#18': 2.257
-    }
-
-    # Acceder a los objetos de la API para propiedades y secciones
-    PropFrame = SapModel.PropFrame
+    print("RECTANGULAR SECTIONS")
+    all_sections = []
+    # Obtener todos los nombres de las secciones de los marcos
+    ret = sapModel.PropFrame.GetNameList()
     
-    sections_list = []
-    processed_sections = set() # Para evitar duplicados
-
-    # 1. Obtener la lista de todos los nombres de secciones de marco definidos
-    try:
-        all_sections_names = PropFrame.GetNameList()
-    except Exception as e:
-        print(f"Error al obtener la lista de secciones: {e}")
-        return []
-
-    print(f"Analizando {len(all_sections_names)} secciones definidas en el modelo...")
-
-    # 2. Iterar sobre cada sección
-    for section_name in all_sections_names:
-        if section_name in processed_sections:
-            continue
-
-        try:
-            # 3. Filtrar: Intentar obtener propiedades de sección rectangular
-            # Si esto falla, no es una sección rectangular y el 'except' la ignorará.
-            file_name, mat_prop, t3, t2, _, _, _, _ = PropFrame.GetRectangle(section_name)
-
-            # 4. Filtrar: Intentar obtener datos de refuerzo de columna.
-            # Si falla, no es una sección de columna o no tiene refuerzo definido.
-            rebar_info = PropFrame.GetColumnRebar(section_name)
-            
-            # Desempacar la información de refuerzo obtenida
-            mat_long, mat_conf, pattern, confine_type, clear_cover, \
-            num_bars_3, num_bars_2, rebar_size, stirrup_size, _, _, _, _ = rebar_info
-
-            # Solo procesar si el patrón de refuerzo es rectangular
-            if pattern != 1: # 1 = Patrón Rectangular
-                continue
-
-            # 5. Calcular propiedades requeridas
-            
-            # Obtener el diámetro del estribo para calcular el recubrimiento a la barra long.
-            stirrup_diameter = BAR_DIAMETERS_IN.get(stirrup_size, 0)
-            
-            # El recubrimiento de la API es hasta el estribo. Se ajusta para que sea
-            # hasta el borde de la barra longitudinal, que es una métrica común.
-            cover_to_long_bar = clear_cover + stirrup_diameter
-
-            # Asumir el número de ganchos como el número de barras internas
-            num_crossties_2 = max(0, num_bars_2 - 2)
-            num_crossties_3 = max(0, num_bars_3 - 2)
-
-            # 6. Construir el diccionario con los datos de la sección
-            section_data = {
+    frame_section_names = ret[1]
+    # print(frame_section_names)
+    rect_sections = []
+    for section_name in frame_section_names:
+        
+        file_name, mat_prop, t3, t2, color, notes, guid, ret_rect = (
+                sapModel.PropFrame.GetRectangle(section_name)
+            )     
+        # Obtener las propiedades del refuerzo
+        mat_prop, mat_conf, pattern, conf_type, cover, num_c_bars, num_r3, num_r2, rebar_size, tie_size, tie_spacing, num_2d_tie, num_3d_tie, to_be_designed, ret_rebar= sapModel.PropFrame.GetRebarColumn(section_name)
+        if ret_rebar == 0:
+            section_dict = {
                 "section": section_name,
-                "h": t3,  # Altura (Depth)
-                "b": t2,  # Ancho (Width)
-                "cover": cover_to_long_bar,
+                "b": t2,  # Convertir a mm
+                "h": t3,  # Convertir a mm
+                "cover": cover,  # Convertir a mm
                 "rebar_size": rebar_size,
-                "num_bars_3": num_bars_3, # Barras en la dirección del ancho 'b'
-                "num_bars_2": num_bars_2, # Barras en la dirección de la altura 'h'
-                "stirrup_size": stirrup_size,
-                "num_crossties_2": num_crossties_2,
-                "num_crossties_3": num_crossties_3
+                "num_bars_2": num_r2,
+                "num_bars_3": num_r3,
+                "stirrup_size": tie_size,
+                "num_crossties_2": num_2d_tie,
+                "num_crossties_3": num_3d_tie
             }
-
-            # 7. Añadir el diccionario a la lista de resultados
-            sections_list.append(section_data)
-            processed_sections.add(section_name)
-
-        except Exception:
-            # Si ocurre cualquier error, significa que la sección no es una
-            # columna de concreto rectangular con refuerzo definido. Simplemente la ignoramos.
-            continue
-            
-    print(f"\nSe encontraron y procesaron {len(sections_list)} secciones de columna de concreto rectangulares.")
-    return sections_list
+            print(section_dict)
+            all_sections.append(section_dict)
+                    
+    return all_sections

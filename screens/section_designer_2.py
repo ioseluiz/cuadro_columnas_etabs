@@ -70,6 +70,48 @@ class EstriboPrincipal(BaseDrawable):
         self.alto = col_h - 2 * recubrimiento - 2 * self.bar_diameter
         self.radio_doblado = 2 * self.bar_diameter
         self.hook_tail_len = 6 * self.bar_diameter
+        
+    # def _draw_quad(self, p1, p2, p3, p4):
+    #     """Función auxiliar para dibujar un quad."""
+    #     glBegin(GL_QUADS)
+    #     glVertex2f(p1[0], p1[1])
+    #     glVertex2f(p2[0], p2[1])
+    #     glVertex2f(p3[0], p3[1])
+    #     glVertex2f(p4[0], p4[1])
+    #     glEnd()
+
+    # def draw(self):
+    #     """Dibuja el estribo como una serie de polígonos para representar su grosor."""
+    #     glColor3f(0.5, 0.3, 0.2)
+        
+    #     # Coordenadas internas y externas del estribo
+    #     offset = self.bar_diameter / 2
+    #     x_in, y_in = self.x + offset, self.y + offset
+    #     ancho_in, alto_in = self.ancho - self.bar_diameter, self.alto - self.bar_diameter
+        
+    #     x_out, y_out = self.x - offset, self.y - offset
+    #     ancho_out, alto_out = self.ancho + self.bar_diameter, self.alto + self.bar_diameter
+        
+    #     # Vértices (puedes simplificar esto, pero es para claridad)
+    #     p1_in = (x_in, y_in)
+    #     p2_in = (x_in + ancho_in, y_in)
+    #     p3_in = (x_in + ancho_in, y_in + alto_in)
+    #     p4_in = (x_in, y_in + alto_in)
+        
+    #     p1_out = (x_out, y_out)
+    #     p2_out = (x_out + ancho_out, y_out)
+    #     p3_out = (x_out + ancho_out, y_out + alto_out)
+    #     p4_out = (x_out, y_out + alto_out)
+
+    #     # Dibujar los 4 segmentos del estribo como rectángulos
+    #     # Segmento inferior
+    #     self._draw_quad(p1_out, p2_out, p2_in, p1_in)
+    #     # Segmento superior
+    #     self._draw_quad(p4_out, p3_out, p3_in, p4_in)
+    #     # Segmento izquierdo
+    #     self._draw_quad(p1_out, p4_out, p4_in, p1_in)
+    #     # Segmento derecho
+    #     self._draw_quad(p2_out, p3_out, p3_in, p2_in)
 
     def draw(self):
         """Dibuja un rectángulo con esquinas redondeadas para el estribo."""
@@ -372,7 +414,8 @@ class SectionDesignerScreen(QMainWindow):
     ### MODIFICACIÓN ###: Constructor ahora acepta 'sections_data'
     def __init__(self, sections_data=None):
         super(SectionDesignerScreen, self).__init__()
-
+        print("---Rectangular Sections------\n")
+        print(sections_data)
         ### MODIFICACIÓN ###: Almacenamiento de datos de secciones
         if sections_data and isinstance(sections_data, list):
             self.sections = sections_data
