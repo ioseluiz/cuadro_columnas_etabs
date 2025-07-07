@@ -436,20 +436,20 @@ class ColumnDataScreen(QWidget):
                 stories_list_dict.append(diccionario_fila)
                 
         ## Data de la Tabla GridLines
-        num_filas_gridlines = self.gridlines_window_ref.table_gridlines_info.rowCount()
-        num_cols_gridlines = self.gridlines_window_ref.table_gridlines_info.columnCount()
+        num_filas_gridlines = self.gridlines_window_ref.table.rowCount()
+        num_cols_gridlines = self.gridlines_window_ref.table.columnCount()
         print(num_filas_gridlines, num_cols_gridlines)
         
         gridlines_headers = []
         for col in range(num_cols_gridlines):
-            header_item = self.gridlines_window_ref.table_gridlines_info.horizontalHeaderItem(col)
+            header_item = self.gridlines_window_ref.table.horizontalHeaderItem(col)
             if header_item is not None and header_item.text():
                 gridlines_headers.append(header_item.text())
                 
         for fila in range(num_filas_gridlines):
             diccionario_fila = {}
             for columna in range(num_cols_gridlines):
-                item = self.gridlines_window_ref.table_gridlines_info.item(fila,columna)
+                item = self.gridlines_window_ref.table.item(fila,columna)
                 if item is not None and item.text() is not None:
                     clave = gridlines_headers[columna]
                     diccionario_fila[clave] = item.text()

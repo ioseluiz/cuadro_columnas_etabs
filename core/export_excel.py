@@ -326,7 +326,7 @@ def generate_excel_table(folder_path, stories_data, grid_lines_data, column_reco
     # GridLines
     grid_lines = []
     for x in grid_lines_data:
-        grid_lines.append(x['GridLine'])
+        grid_lines.append(x['ID'])
         
 
     stories_reverse = []
