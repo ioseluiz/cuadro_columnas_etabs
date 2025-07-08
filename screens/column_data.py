@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSpacerItem, QSizePolicy, QFileDialog,
     QTableWidget, QTableWidgetItem, QScrollArea, QFrame, QComboBox,
-    QTextEdit, QMessageBox
+    QTextEdit, QMessageBox, QInputDialog
     
 )
 from PyQt5.QtGui import QFont, QPixmap 
@@ -52,11 +52,13 @@ class ColumnDataScreen(QWidget):
         self.btn_exportar_excel = QPushButton("Exportar a Excel")
         self.btn_exportar_planos = QPushButton("Exportar DXF")
         self.btn_actualizar_modelo = QPushButton("Actualizar el Modelo")
+       
         
         # top_button_layout.addWidget(self.btn_modificar_columnas)
         top_button_layout.addWidget(self.btn_exportar_excel)
         top_button_layout.addWidget(self.btn_exportar_planos)
         top_button_layout.addWidget(self.btn_actualizar_modelo)
+        
         
         self.main_layout.addLayout(top_button_layout)
         
@@ -67,10 +69,12 @@ class ColumnDataScreen(QWidget):
         self.btn_info_stories = QPushButton("Stories")
         self.btn_grid_lines = QPushButton("Grid lines")
         self.btn_section_editor = QPushButton("Section Editor")
+        self.btn_renombrar_detalle = QPushButton("Renombrar Detalle")
         
         info_button_layout.addWidget(self.btn_info_stories)
         info_button_layout.addWidget(self.btn_grid_lines)
         info_button_layout.addWidget(self.btn_section_editor)
+        info_button_layout.addWidget(self.btn_renombrar_detalle)
         
         self.main_layout.addLayout(info_button_layout, stretch=1)
         
@@ -294,6 +298,7 @@ class ColumnDataScreen(QWidget):
         self.btn_info_stories.clicked.connect(self.show_info_stories)
         self.btn_grid_lines.clicked.connect(self.show_info_gridlines)
         self.btn_section_editor.clicked.connect(self.show_section_designer)
+        self.btn_renombrar_detalle.clicked.connect(self.renombrar_detalle_action)
         
 
         self.apply_styles() # Aplicar algunos estilos básicos
@@ -327,6 +332,7 @@ class ColumnDataScreen(QWidget):
         self.btn_info_stories.setStyleSheet(action_button_style)
         self.btn_grid_lines.setStyleSheet(action_button_style)
         self.btn_section_editor.setStyleSheet(action_button_style)
+        self.btn_renombrar_detalle.setStyleSheet(action_button_style)
         
         
 
@@ -638,6 +644,31 @@ class ColumnDataScreen(QWidget):
         if self.main_menu_ref:
             self.main_menu_ref.show()
             self.main_menu_ref.sap_model_connected = None # Limpiar referencia en el menú principal
+            
+    def renombrar_detalle_action(self):
+        selected_items = self.table_rectangular_armado.currentItem()
+        if not selected_items:
+            QMessageBox.warning(self, "Seleccion Requerida", "Por favor seleccione una fila en la columna Detalle No.")
+            return
+        
+        
+        selected_row = selected_items.row()
+        detalle_item = self.table_rectangular_armado.item(selected_row, 16)
+        
+        if not detalle_item:
+            return
+        
+        old_detalle_name = detalle_item.text()
+        new_detalle_name, ok = QInputDialog.getText(self, "Renombrar Detalle", f"Renombrar '{old_detalle_name}' a: ", text=old_detalle_name)
+        
+        if ok and new_detalle_name and new_detalle_name != old_detalle_name:
+            # Bucle para renombrar en todas las filas que hacen match
+            for row in range(self.table_rectangular_armado.rowCount()):
+                item = self.table_rectangular_armado.item(row,16)
+                if item and item.text() == old_detalle_name:
+                    item.setText(new_detalle_name)
+                    
+            QMessageBox.information(self, "Exito", f"El detalle '{old_detalle_name}' ha sido renombrado a: '{new_detalle_name}.'")
 
     def closeEvent(self, event):
         """Maneja el cierre de la ventana."""

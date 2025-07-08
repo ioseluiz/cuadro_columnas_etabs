@@ -1,11 +1,11 @@
 from openpyxl import Workbook
-from openpyxl.styles.borders import Border, Side
-from openpyxl.styles import Alignment
+from openpyxl.styles import Alignment, Font, Border, Side
 
 import math
 from pathlib import Path
 import os
 import json
+import pandas as pd
 
 
 from collections import defaultdict
@@ -53,6 +53,19 @@ MAX_DISTANCIA_LIBRE_A_BARRA_APOYADA_PULGADAS = 6.0    # pulgadas
 
 
 from collections import defaultdict
+
+def set_border(ws, cell_range, border_style):
+    """
+    Aplica un estilo de borde a un rango de celdas.
+    
+    :param ws: La hoja de cálculo de openpyxl.
+    :param cell_range: El string del rango de celdas (ej. "A1:C5").
+    :param border_style: El objeto Border a aplicar.
+    """
+    rows = ws[cell_range]
+    for row in rows:
+        for cell in row:
+            cell.border = border_style
 
 def agrupar_gridlines_por_contenido(datos):
     """
