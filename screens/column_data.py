@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSpacerItem, QSizePolicy, QFileDialog,
     QTableWidget, QTableWidgetItem, QScrollArea, QFrame, QComboBox,
-    QTextEdit, QMessageBox, QInputDialog
+    QTextEdit, QMessageBox, QInputDialog, QLineEdit
     
 )
 from PyQt5.QtGui import QFont, QPixmap 
@@ -97,6 +97,34 @@ class ColumnDataScreen(QWidget):
         file_button_layout.addLayout(folder_button_layout)
         
         self.main_layout.addLayout(file_button_layout)
+        
+        # Seccion de Filtros ---
+        filter_layout = QHBoxLayout()
+        filter_layout.setSpacing(10)
+        
+        self.filter_gridline_input = QLineEdit()
+        self.filter_gridline_input.setPlaceholderText("Filtrar por GridLine...")
+        self.filter_gridline_input.textChanged.connect(self.filter_table)
+        
+        self.filter_detalle_input = QLineEdit()
+        self.filter_detalle_input.setPlaceholderText("Filtrar por Detalle No...")
+        self.filter_detalle_input.textChanged.connect(self.filter_table)
+        
+        self.filter_section_input = QLineEdit()
+        self.filter_section_input.setPlaceholderText("Filtrar por Section...")
+        self.filter_section_input.textChanged.connect(self.filter_table)
+        
+        self.filter_group_input = QLineEdit()
+        self.filter_group_input.setPlaceholderText("Filtrar por Group...")
+        self.filter_group_input.textChanged.connect(self.filter_table)
+        
+        filter_layout.addWidget(QLabel("Filtros:"))
+        filter_layout.addWidget(self.filter_gridline_input)
+        filter_layout.addWidget(self.filter_detalle_input)
+        filter_layout.addWidget(self.filter_section_input)
+        filter_layout.addWidget(self.filter_group_input)
+
+        self.main_layout.addLayout(filter_layout)
         
         # -- Area de Tabs para Datos de Columnas
         self.tabs_layout = QHBoxLayout()
@@ -352,6 +380,39 @@ class ColumnDataScreen(QWidget):
         """)
         self.setStyleSheet("QWidget { background-color: #E1E1E1; } QLabel { font-size: 12px; font-weight: bold; }")
         
+    def filter_table(self):
+        """
+        Filtra las filas de la tabla basandose en el texto QLineEdit de filtro.
+        """
+        gridline_filter = self.filter_gridline_input.text().lower()
+        detalle_filter = self.filter_detalle_input.text().lower()
+        section_filter = self.filter_section_input.text().lower()
+        group_filter = self.filter_group_input.text().lower()
+        
+        for row in range(self.table_rectangular_armado.rowCount()):
+            gridline_item = self.table_rectangular_armado.item(row, 1)
+            detalle_item = self.table_rectangular_armado.item(row, 16)
+            section_widget = self.table_rectangular_armado.cellWidget(row, 6) # Es un QComboBox
+            group_item = self.table_rectangular_armado.item(row, 24)
+           
+            # Obtener texto de los items y widgets
+            gridline_text = gridline_item.text().lower() if gridline_item else ""
+            detalle_text = detalle_item.text().lower() if detalle_item else ""
+            section_text = section_widget.currentText().lower() if isinstance(section_widget, QComboBox) else ""
+            group_text = group_item.text().lower() if group_item else ""
+           
+            # Comprobar si la fila debe ser visible
+            gridline_match = not gridline_filter or gridline_text == gridline_filter
+            detalle_match = not detalle_filter or detalle_text == detalle_filter
+            section_match = not section_filter or section_text == section_filter
+            group_match = not group_filter or group_text == group_filter
+
+            # La fila es visible solo si coincide con todos los filtros
+            if gridline_match and detalle_match and section_match and group_match:
+                self.table_rectangular_armado.setRowHidden(row, False)
+            else:
+                self.table_rectangular_armado.setRowHidden(row, True)
+   
     def load_column_data_action(self):
         # Se crea una nueva instancia cada vez o se muestra una existente
         
