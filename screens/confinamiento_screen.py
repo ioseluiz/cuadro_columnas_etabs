@@ -9,6 +9,10 @@ class ConfinamientoScreen(QWidget):
     """
     def __init__(self, data_sections):
         super(ConfinamientoScreen, self).__init__()
+        
+        # Lectura de datos
+        self.data_sections = data_sections
+        
         self.setWindowTitle("Calculo de Confinamiento de Columnas")
         self.setGeometry(200,200,1400,800)
         
