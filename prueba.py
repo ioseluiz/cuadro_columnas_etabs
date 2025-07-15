@@ -60,7 +60,7 @@ class ConfinamientoScreen(QWidget):
             "Sección", "b (cm)", "h (cm)", "rec (cm)",
             "Acero Long.", "Ø Long. (cm)", "# Barras Eje 2", "# Barras Eje 3",
             "Estribo", "Ø Estribo (cm)", "f'c (kg/cm²)", "fy (kg/cm²)", "bc1","bc2",
-            "X1","X2","hx", "a(cm)","b(cm)","c(cm)", "d(cm)", "Smax,", "Cuantia REQ", "Cuantia", "DCR"
+            "X1","X2","hx", "a(cm)","b(cm)","c(cm)", "d(cm)", "Smax,", "kf","kn","Cuantia REQ", "Cuantia", "DCR"
         ]
         self.tabla_confinamiento.setColumnCount(len(headers))
         self.tabla_confinamiento.setHorizontalHeaderLabels(headers)
@@ -138,6 +138,19 @@ class ConfinamientoScreen(QWidget):
             # d (cm)
             d = 10 + (35 - hx)/3
             self.tabla_confinamiento.setItem(row_idx, 20, QTableWidgetItem(str(d)))
+            
+            #kf 
+            if ((fc/1780)+0.6) >= 1:
+                kf = (fc/1780)+0.6
+            else:
+                kf = 1
+            self.tabla_confinamiento.setItem(row_idx, 22, QTableWidgetItem(str(kf)))
+            
+            #kn
+            kn = (num_bars_2 + num_bars_3) / ((num_bars_2 + num_bars_3) - 1)
+            self.tabla_confinamiento.setItem(row_idx, 23, QTableWidgetItem(str(kn)))
+            
+            
             
             
         self.tabla_confinamiento.resizeColumnsToContents()
