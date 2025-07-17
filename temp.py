@@ -111,6 +111,7 @@ def get_excel_col(col_data, value):
     return None
 
 def detectar_bxh_empty(work_sheet, stories_reverse, grid_lines):
+    # Esta función ahora necesitará la estructura `col_rows` para saber las filas correctas
     for group in stories_reverse:
         row = group['row']
         counter_col = 0
@@ -121,8 +122,11 @@ def detectar_bxh_empty(work_sheet, stories_reverse, grid_lines):
                 work_sheet.cell(row=row, column=3 + counter_col).border = DIAGONAL_BORDER
             counter_col += 1
 
-# --- NUEVA FUNCIÓN DE AGRUPAMIENTO DE NIVELES (sin cambios) ---
+# --- NUEVA FUNCIÓN DE AGRUPAMIENTO ---
 def _agrupar_niveles_consecutivos_iguales(stories_data, column_records, grid_lines_data):
+    """
+    Agrupa niveles consecutivos que tienen datos de columna idénticos.
+    """
     if not stories_data or not column_records:
         return []
 
@@ -206,76 +210,6 @@ def _agrupar_niveles_consecutivos_iguales(stories_data, column_records, grid_lin
     
     return grouped_level_info
 
-# --- INICIO: NUEVA FUNCIÓN PARA AGRUPAR GRIDLINES IDÉNTICOS ---
-def _group_identical_gridlines(ws, gridline_columns, col_rows):
-    """
-    Agrupa columnas de GridLine idénticas en la hoja de cálculo de Excel.
-
-    Compara el contenido de cada columna de GridLine. Si dos o más columnas son
-    idénticas, las fusiona en una, actualiza el encabezado para incluir todos
-    los nombres de GridLine agrupados y elimina las columnas duplicadas.
-
-    Args:
-        ws: El objeto de la hoja de trabajo de openpyxl.
-        gridline_columns (list): Lista de diccionarios que mapean GridLine a su columna en Excel.
-        col_rows (list): Lista de diccionarios que definen las filas para cada nivel.
-
-    Returns:
-        list: Una nueva lista de los nombres de GridLine (encabezados) que
-              permanecen en la hoja de cálculo después del agrupamiento, para
-              ser usada por funciones posteriores.
-    """
-    if not gridline_columns or not col_rows:
-        return []
-
-    # Determinar el rango de filas a comparar para cada columna
-    start_row = col_rows[0]['row']
-    # Cada grupo de nivel tiene 9 filas
-    last_level_rows = 9
-    end_row = col_rows[-1]['row'] + last_level_rows - 1
-
-    # Recopilar la "firma" (contenido) de cada columna
-    column_signatures = defaultdict(list)
-    for grid_info in gridline_columns:
-        col_idx = grid_info['excel_col']
-        # Extraer todos los valores de la columna en el rango de datos
-        values = [ws.cell(row=row_idx, column=col_idx).value for row_idx in range(start_row, end_row + 1)]
-        signature = tuple(values)
-        column_signatures[signature].append(grid_info)
-
-    cols_to_delete = []
-    # Identificar grupos de columnas idénticas y planificar la fusión
-    for signature, group in column_signatures.items():
-        if len(group) > 1:
-            # Ordenar el grupo por el número de columna original para mantener la primera
-            group.sort(key=lambda x: x['excel_col'])
-            
-            # La primera columna del grupo se conserva y su encabezado se actualiza
-            col_to_keep = group[0]
-            grouped_names = sorted([item['gridline'] for item in group])
-            new_header = ", ".join(grouped_names)
-            ws.cell(row=1, column=col_to_keep['excel_col']).value = new_header
-            
-            # Las otras columnas del grupo se marcan para eliminación
-            for col_info in group[1:]:
-                cols_to_delete.append(col_info['excel_col'])
-
-    # Eliminar las columnas duplicadas, de derecha a izquierda para evitar errores de índice
-    for col_idx in sorted(cols_to_delete, reverse=True):
-        ws.delete_cols(col_idx, 1)
-
-    # Crear una nueva lista de gridlines actualizada para la siguiente función
-    final_grid_lines = []
-    # El número de columnas de GridLine se ha reducido
-    num_final_cols = len(gridline_columns) - len(cols_to_delete)
-    for i in range(num_final_cols):
-        # Leer el encabezado de la columna que ahora está en la posición 3 + i
-        header_val = ws.cell(row=1, column=3 + i).value
-        final_grid_lines.append(header_val)
-        
-    return final_grid_lines
-# --- FIN: NUEVA FUNCIÓN ---
-
 # --- FUNCIÓN PRINCIPAL MODIFICADA ---
 def generate_excel_table(folder_path, stories_data, grid_lines_data, column_records: list[dict]):
     grid_lines = [x['ID'] for x in grid_lines_data]
@@ -289,7 +223,8 @@ def generate_excel_table(folder_path, stories_data, grid_lines_data, column_reco
     ws.column_dimensions['B'].width = 25
 
     columns_records_reduced = [rec for rec in column_records if rec['nivel start'] != rec['nivel end']]
-    
+
+    # --- INICIO DE LA MODIFICACIÓN ---
     # 1. Agrupar niveles antes de generar las filas de Excel
     grouped_levels = _agrupar_niveles_consecutivos_iguales(stories_data, columns_records_reduced, grid_lines_data)
 
@@ -319,6 +254,7 @@ def generate_excel_table(folder_path, stories_data, grid_lines_data, column_reco
                 ws.cell(row=current_excel_row + 8, column=3 + k).border = BOTTOM_BORDER
         
         current_excel_row += 9
+    # --- FIN DE LA MODIFICACIÓN ---
 
     gridline_columns = []
     counter_col = 0
@@ -364,18 +300,11 @@ def generate_excel_table(folder_path, stories_data, grid_lines_data, column_reco
                         min(depth_mm, width_mm), rebar_diameter_mm, 420, 300, unidades="mm", fy_units="MPa")[0]
                     ws.cell(row=excel_row_start + 3, column=excel_column).value = espaciamiento_mm
                 except (ValueError, TypeError, KeyError):
+                    # En caso de error en los datos, dejar las celdas calculadas en blanco
                     ws.cell(row=excel_row_start + 7, column=excel_column).value = "Error"
                     ws.cell(row=excel_row_start + 3, column=excel_column).value = "Error"
-                    
-    # --- INICIO DE LA MODIFICACIÓN: AGRUPAMIENTO DE GRIDLINES IDÉNTICOS ---
-    # Agrupa las columnas de GridLine que son idénticas, actualiza los encabezados y
-    # devuelve la nueva lista de gridlines para que la utilicen las funciones posteriores.
-    final_grid_lines = _group_identical_gridlines(ws, gridline_columns, col_rows)
-    # --- FIN DE LA MODIFICACIÓN ---
 
-    # La función detectar_bxh_empty ahora usa la lista actualizada de gridlines.
-    # Esto asegura que opera sobre la estructura de columnas correcta después del agrupamiento.
-    detectar_bxh_empty(ws, col_rows, final_grid_lines)
+    detectar_bxh_empty(ws, col_rows, grid_lines)
                 
     full_filename = str(Path(folder_path) / 'cuadro_columnas.xlsx')
     try:
