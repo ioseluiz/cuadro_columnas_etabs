@@ -527,7 +527,7 @@ def get_fc_concrete(sap_model, material):
     if ret == 0:
         if mat_type == MAT_TYPE_CONCRETE:
             ret = sap_model.PropMaterial.GetOConcrete_1(material)
-            fc = round(ret[0], 2)
+            fc = round(ret[0])
     return fc
 
 

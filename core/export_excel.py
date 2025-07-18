@@ -147,9 +147,9 @@ def _agrupar_niveles_consecutivos_iguales(stories_data, column_records, grid_lin
                     width_mm = float(record['width']) * 10
                     h_floor_mm = (float(record['End Z']) - float(record['Start Z'])) * 1000
 
-                    lo_val = calcular_lo_aci_318_19(max(depth_mm, width_mm), h_floor_mm, "mm") / 10
-                    espaciamiento_val = calcular_espaciamiento_estribos_confinamiento_columnas_aci_318_19(
-                        min(depth_mm, width_mm), rebar_diameter_mm, 420, 300, unidades="mm", fy_units="MPa")[0]
+                    lo_val = round(calcular_lo_aci_318_19(max(depth_mm, width_mm), h_floor_mm, "mm") / 10,0)
+                    espaciamiento_val = round(calcular_espaciamiento_estribos_confinamiento_columnas_aci_318_19(
+                        min(depth_mm, width_mm), rebar_diameter_mm, 420, 300, unidades="mm", fy_units="MPa")[0])
 
                     signature.append((
                         grid, record.get('bxh'), record.get('fc'), record.get('As'),
@@ -357,12 +357,12 @@ def generate_excel_table(folder_path, stories_data, grid_lines_data, column_reco
                     width_mm = float(record['width']) * 10
                     h_floor_mm = (float(record['End Z']) - float(record['Start Z'])) * 1000
                     
-                    lo_cm = calcular_lo_aci_318_19(max(depth_mm, width_mm), h_floor_mm, "mm") / 10
+                    lo_cm = round(calcular_lo_aci_318_19(max(depth_mm, width_mm), h_floor_mm, "mm") / 10)
                     ws.cell(row=excel_row_start + 7, column=excel_column).value = lo_cm
 
                     espaciamiento_mm = calcular_espaciamiento_estribos_confinamiento_columnas_aci_318_19(
                         min(depth_mm, width_mm), rebar_diameter_mm, 420, 300, unidades="mm", fy_units="MPa")[0]
-                    ws.cell(row=excel_row_start + 3, column=excel_column).value = espaciamiento_mm
+                    ws.cell(row=excel_row_start + 3, column=excel_column).value = round(espaciamiento_mm/10)
                 except (ValueError, TypeError, KeyError):
                     ws.cell(row=excel_row_start + 7, column=excel_column).value = "Error"
                     ws.cell(row=excel_row_start + 3, column=excel_column).value = "Error"
