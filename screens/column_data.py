@@ -28,7 +28,7 @@ class ColumnDataScreen(QWidget):
     Pantalla para mostrar y gestionar datos de columnas después de conectar con ETABS.
     Inspirada en la imagen proporcionada.
     """
-    def __init__(self, main_menu_ref,stories_window_ref, gridlines_window_ref, section_designer_window_ref,sap_model_object=None, parent=None, column_data=None, rect_sections=None, rebars=None):
+    def __init__(self, main_menu_ref,stories_window_ref, gridlines_window_ref, section_designer_window_ref,confinement_screen_ref,sap_model_object=None, parent=None, column_data=None, rect_sections=None, rebars=None):
         super().__init__(parent)
         self.main_menu_ref = main_menu_ref
         self.stories_window_ref = stories_window_ref
@@ -36,6 +36,7 @@ class ColumnDataScreen(QWidget):
         # Almacenamos los datos de gridlines originales para usarlos despues
         self._raw_gridlines_data = self._extract_unique_gridlines(column_data)
         self.section_designer_window_ref = section_designer_window_ref
+        self.confinement_screen_ref = confinement_screen_ref
         self.sap_model = sap_model_object
         
         self.identificar_columnas_screen = None
@@ -74,11 +75,13 @@ class ColumnDataScreen(QWidget):
         self.btn_grid_lines = QPushButton("Grid lines")
         self.btn_section_editor = QPushButton("Section Editor")
         self.btn_renombrar_detalle = QPushButton("Renombrar Detalle")
+        self.btn_confinement_calculator = QPushButton("Confinement Calculator")
         
         info_button_layout.addWidget(self.btn_info_stories)
         info_button_layout.addWidget(self.btn_grid_lines)
         info_button_layout.addWidget(self.btn_section_editor)
         info_button_layout.addWidget(self.btn_renombrar_detalle)
+        info_button_layout.addWidget(self.btn_confinement_calculator)
         
         self.main_layout.addLayout(info_button_layout, stretch=1)
         
@@ -331,6 +334,7 @@ class ColumnDataScreen(QWidget):
         self.btn_grid_lines.clicked.connect(self.show_info_gridlines)
         self.btn_section_editor.clicked.connect(self.show_section_designer)
         self.btn_renombrar_detalle.clicked.connect(self.renombrar_detalle_action)
+        self.btn_confinement_calculator.clicked.connect(self.show_confinement_screen)
         
 
         self.apply_styles() # Aplicar algunos estilos básicos
@@ -829,6 +833,11 @@ class ColumnDataScreen(QWidget):
         # 5. Mostrar la ventana
         self.gridlines_window_ref.show()
         self.gridlines_window_ref.activateWindow() # Traer al frente
+        
+    def show_confinement_screen(self):
+        """Muestra la pantalla de cálculo de confinamiento."""
+        if self.confinement_screen_ref:
+            self.confinement_screen_ref.show()
 
     def show_section_designer(self):
         self.section_designer_window_ref.show()

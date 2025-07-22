@@ -29,6 +29,7 @@ from screens.open_file import OpenFileWindow
 from screens.info_stories import InfoStoriesScreen
 from screens.info_gridlines_2 import InfoGridLinesScreen
 from screens.section_designer_2 import SectionDesignerScreen
+from screens.confinamiento_screen import ConfinementScreen
 
 class Worker(QObject):
     # Signal cuando acabe el proceso
@@ -101,6 +102,7 @@ class MainMenuScreen(QMainWindow):
         self.info_stories_screen = None # Window with Stories Data
         self.info_gridlines_screen = None # Window with GridLines Data
         self.section_designer_screen = None # Window with Section Data
+        self.confinement_screen = None
 
         # --- Central Widget and Layout ---
         self.central_widget = QWidget(self)
@@ -423,6 +425,29 @@ class MainMenuScreen(QMainWindow):
         if not self.section_designer_screen:
             self.section_designer_screen = SectionDesignerScreen(sections_data=rectangular_sections)
             
+        # Preparar datos para ConfinementScreen
+        section_data_list = []
+        for section in rectangular_sections:
+            section_data_list.append(
+                {
+                    "name": section.get("section"),
+                    "b": section.get("b"),
+                    "h": section.get("h"),
+                    "f'c": section.get("fc"),
+                    "rebar_size": section.get("rebar_size"),
+                    "estribo": section.get("stirrup_size"),
+                    "pu": None,
+                    "rec": section.get("cover"),
+                    "n_b_bc2": section.get("num_bars_2"),
+                    "n_b_bc1": section.get("num_bars_3"),
+                }
+            )
+            
+        # Crear y esconder ConfinementScreen
+        if not self.confinement_screen:
+            self.confinement_screen = ConfinementScreen(section_data_list)
+            self.confinement_screen.hide()
+            
             # self.info_gridlines_screen.hide()
         # Crear y mostrar ColumnDataScreen
         if not self.column_data_screen:
@@ -431,6 +456,7 @@ class MainMenuScreen(QMainWindow):
                 stories_window_ref= self.info_stories_screen,
                 gridlines_window_ref= None, # modificacion
                 section_designer_window_ref=self.section_designer_screen,
+                confinement_screen_ref=self.confinement_screen,
                 sap_model_object=sap_model,
                 column_data=data_cols_labels_story,
                 rect_sections=sections,

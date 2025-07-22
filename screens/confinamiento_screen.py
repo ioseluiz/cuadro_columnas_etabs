@@ -24,6 +24,8 @@ class ConfinementScreen(QWidget):
             section_data_list (list): Una lista con diccionarios de datos de secciones transversales.
         """
         super().__init__()
+        for item in section_data_list:
+            item['pu'] = None
         self.initial_section_data_list = section_data_list
         self.setWindowTitle("Cálculo de Confinamiento")
         self.setGeometry(200, 200, 1800, 600)  # Aumentamos el ancho para las nuevas columnas
