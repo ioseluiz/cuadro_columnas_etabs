@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from collections import defaultdict # Modificacion
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSpacerItem, QSizePolicy, QFileDialog,
@@ -15,6 +16,7 @@ import pandas as pd
 from core import create_column_table, export_excel, etabs
 
 from screens.identify_column import IdentificarColumnasScreen
+from screens.info_gridlines_2 import InfoGridLinesScreen # modificacion
 
 from dxf_drawer.drawing import Drawing
 from dxf_drawer.detail import Detail
@@ -31,6 +33,8 @@ class ColumnDataScreen(QWidget):
         self.main_menu_ref = main_menu_ref
         self.stories_window_ref = stories_window_ref
         self.gridlines_window_ref = gridlines_window_ref
+        # Almacenamos los datos de gridlines originales para usarlos despues
+        self._raw_gridlines_data = self._extract_unique_gridlines(column_data)
         self.section_designer_window_ref = section_designer_window_ref
         self.sap_model = sap_model_object
         
@@ -564,6 +568,51 @@ class ColumnDataScreen(QWidget):
                     nuevo_valor = mapa_valores[texto_celda]
                     item.setText(nuevo_valor)
                     print(f"Cambiado '{texto_celda}' por '{nuevo_valor}' en ({fila}, 1)")
+                    
+                    
+    def _update_group_column_in_table(self, groups):
+        """
+        Actualiza la columna 'Group' en la tabla principal (self.table_rectangular_armado)
+        basándose en el diccionario de grupos proporcionado.
+
+        Args:
+            groups (dict): Un diccionario donde las llaves son los nombres de los grupos
+                           y los valores son listas de los GridLine IDs que pertenecen a él.
+        """
+        table = self.table_rectangular_armado
+        if not table:
+            return
+
+        # Índices de las columnas relevantes (basado en el código existente)
+        GRIDLINE_COL_IDX = 1
+        GROUP_COL_IDX = 24
+
+        # 1. Crear un mapa inverso para una búsqueda eficiente: {grid_id: group_name}
+        grid_to_group_map = {}
+        for group_name, grid_ids in groups.items():
+            for grid_id in grid_ids:
+                grid_to_group_map[grid_id] = group_name
+
+        # 2. Recorrer la tabla y actualizar la columna "Group"
+        for row in range(table.rowCount()):
+            gridline_item = table.item(row, GRIDLINE_COL_IDX)
+            if not gridline_item:
+                continue
+            
+            gridline_id = gridline_item.text()
+            
+            # Determinar el nombre del grupo para el GridLine actual
+            group_name = grid_to_group_map.get(gridline_id, "") # Devuelve "" si no está en un grupo
+
+            # Obtener o crear el item en la columna de grupo
+            group_item = table.item(row, GROUP_COL_IDX)
+            if not group_item:
+                group_item = QTableWidgetItem(group_name)
+                table.setItem(row, GROUP_COL_IDX, group_item)
+            else:
+                group_item.setText(group_name)
+
+        print("Columna 'Group' en la tabla principal ha sido actualizada.")
                         
            
                     
@@ -684,8 +733,102 @@ class ColumnDataScreen(QWidget):
     def show_info_stories(self):
         self.stories_window_ref.show()
         
+    def _extract_unique_gridlines(self, column_data):
+        """Extrae información única de GridLines (ID, x, y) de los datos de columnas."""
+        if not column_data:
+            return []
+        
+        df = pd.DataFrame(column_data)
+        if 'GridLine' not in df.columns or 'pos_x' not in df.columns or 'pos_y' not in df.columns:
+            return []
+            
+        unique_gridlines = df[['GridLine', 'pos_x', 'pos_y']].drop_duplicates().to_dict('records')
+        
+        # Convertir a la tupla (id, x, y) que espera InfoGridLinesScreen
+        return [(str(g['GridLine']), g['pos_x'], g['pos_y']) for g in unique_gridlines]
+    
+    def _group_identical_gridlines_from_table(self):
+        """
+        Analiza la tabla de datos de columnas y agrupa los GridLines que tienen
+        contenido idéntico a través de todos los niveles.
+        """
+        table = self.table_rectangular_armado
+        if table.rowCount() == 0:
+            return {}
+
+        # Mapea ID de GridLine a una lista de sus valores en la tabla
+        gridline_content = defaultdict(list)
+        
+        # Columnas a comparar para determinar si los GridLines son idénticos
+        # Se excluyen Story, Frame_id, y coordenadas Z que varían por nivel.
+        # Se incluye el Detalle No. y el Grupo.
+        columns_to_check = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 24]
+        
+        # 1. Crear una "firma" para cada GridLine basada en su contenido
+        gridlines = sorted(list(set(table.item(row, 1).text() for row in range(table.rowCount()))))
+
+        signatures = {}
+        for grid_id in gridlines:
+            content = []
+            for row in range(table.rowCount()):
+                if table.item(row, 1).text() == grid_id:
+                    row_content = []
+                    for col_idx in columns_to_check:
+                        widget = table.cellWidget(row, col_idx)
+                        if isinstance(widget, QComboBox):
+                            row_content.append(widget.currentText())
+                        else:
+                            item = table.item(row, col_idx)
+                            row_content.append(item.text() if item else "")
+                    content.append(tuple(row_content))
+            signatures[grid_id] = tuple(content)
+
+        # 2. Agrupar los GridLines que tienen la misma firma
+        grouped_by_signature = defaultdict(list)
+        for grid_id, signature in signatures.items():
+            grouped_by_signature[signature].append(grid_id)
+
+        # 3. Formatear el resultado final
+        final_groups = {}
+        group_counter = 1
+        for signature, grid_ids in grouped_by_signature.items():
+            if len(grid_ids) > 1: # Solo nos interesan los grupos con más de un miembro
+                group_name = f"Grupo {group_counter}"
+                final_groups[group_name] = sorted(grid_ids)
+                group_counter += 1
+        
+        return final_groups
+    
+    
+        
     def show_info_gridlines(self):
+        """
+        Gestiona la creación y visualización de la ventana de información de GridLines,
+        incluyendo la agrupación y actualización de la tabla principal.
+        """
+        # Si la ventana no existe o fue cerrada, se crea una nueva.
+        if self.gridlines_window_ref is None or not self.gridlines_window_ref.isVisible():
+            # 1. Agrupar los GridLines usando la función existente
+            print("Agrupando GridLines idénticos desde la tabla...")
+            preloaded_groups = self._group_identical_gridlines_from_table()
+            print(f"Grupos encontrados: {preloaded_groups}")
+
+            # 2. Actualizar la columna "Group" en la tabla de datos principal (NUEVO PASO)
+            self._update_group_column_in_table(preloaded_groups)
+
+            # 3. Instanciar la ventana de InfoGridLines, pasando los datos y los grupos
+            self.gridlines_window_ref = InfoGridLinesScreen(
+                gridlines_data=self._raw_gridlines_data,
+                groups=preloaded_groups
+            )
+            
+            # 4. Conectar la señal para renombrar y pasar la referencia de la tabla
+            self.gridlines_window_ref.datos_para_renombrar.connect(self.realizar_renombrado)
+            self.gridlines_window_ref.set_main_column_table(self.table_rectangular_armado)
+        
+        # 5. Mostrar la ventana
         self.gridlines_window_ref.show()
+        self.gridlines_window_ref.activateWindow() # Traer al frente
 
     def show_section_designer(self):
         self.section_designer_window_ref.show()

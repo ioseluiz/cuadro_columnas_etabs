@@ -393,12 +393,14 @@ class GroupManagerDialog(QDialog):
         self.groups = groups
         self.main_column_table = main_column_table # Referencia de tabla en ventana principal
         
+        # PASO 1: Crear toda la interfaz de usuario PRIMERO.
+        # Todo este bloque de código se mueve hacia arriba.
         dialog_layout = QVBoxLayout(self)
         lists_layout = QHBoxLayout()
         
         left_panel = QVBoxLayout()
         left_panel.addWidget(QLabel("Grupos Existentes"))
-        self.group_list_widget = QListWidget()
+        self.group_list_widget = QListWidget() # << WIDGET CREADO AQUÍ
         self.group_list_widget.itemSelectionChanged.connect(self.update_column_lists)
         left_panel.addWidget(self.group_list_widget)
         new_group_button = QPushButton("Crear Nuevo Grupo")
@@ -432,12 +434,13 @@ class GroupManagerDialog(QDialog):
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         dialog_layout.addWidget(self.button_box)
-        
+
+        # PASO 2: Ahora que los widgets existen, se pueden poblar y manipular.
+        # Estas líneas ahora se ejecutan al final.
         self.refresh_groups()
 
         if self.group_list_widget.count() > 0:
             self.group_list_widget.setCurrentRow(0)
-
     def refresh_groups(self):
         self.group_list_widget.clear()
         for group_id in self.groups.keys():
@@ -527,7 +530,7 @@ class GroupManagerDialog(QDialog):
 
 class InfoGridLinesScreen(QMainWindow):
     datos_para_renombrar = pyqtSignal(dict)
-    def __init__(self, gridlines_data):
+    def __init__(self, gridlines_data, groups=None):
         """
         Constructor que inicializa la ventana.
         
@@ -540,7 +543,7 @@ class InfoGridLinesScreen(QMainWindow):
         self.setGeometry(100, 100, 1200, 800)
 
         self.columns = {} 
-        self.groups = {} 
+        self.groups = groups if groups is not None else {}
         self.column_counter = 0
         self.main_column_table = None # Añadir atributo para la tabla
 
@@ -846,7 +849,8 @@ class InfoGridLinesScreen(QMainWindow):
             QMessageBox.information(self, "Información", "Necesita al menos dos columnas para crear grupos.")
             return
         
-        dialog = GroupManagerDialog(self.columns, copy.deepcopy(self.groups),self.main_column_table, self)
+        # dialog = GroupManagerDialog(self.columns, copy.deepcopy(self.groups),self.main_column_table, self)
+        dialog = GroupManagerDialog(self.columns, copy.deepcopy(self.groups), self.main_column_table, self)
         if dialog.exec_():
             self.groups = dialog.groups
             for col in self.columns.values(): col.group_id = None 

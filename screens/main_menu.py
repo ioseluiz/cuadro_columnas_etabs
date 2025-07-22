@@ -409,13 +409,13 @@ class MainMenuScreen(QMainWindow):
             
         # Crear y esconder  InfoGridLinesScreen
         ## Modificar gridlines_data
-        gridlines_list_info = []
-        for item in gridlines_data:
-            info = (str(item['GridLine']), item['pos_x'], item['pos_y'])
-            gridlines_list_info.append(info)
+        # gridlines_list_info = []
+        # for item in gridlines_data:
+        #     info = (str(item['GridLine']), item['pos_x'], item['pos_y'])
+        #     gridlines_list_info.append(info)
             
-        if not self.info_gridlines_screen:
-            self.info_gridlines_screen = InfoGridLinesScreen(gridlines_list_info)
+        # if not self.info_gridlines_screen:
+        #     self.info_gridlines_screen = InfoGridLinesScreen(gridlines_list_info)
 
         # Creay y esconder SectionDesignerScreen
         print("---Rectangular Sections-----Main menu-\n")
@@ -423,20 +423,20 @@ class MainMenuScreen(QMainWindow):
         if not self.section_designer_screen:
             self.section_designer_screen = SectionDesignerScreen(sections_data=rectangular_sections)
             
-            self.info_gridlines_screen.hide()
+            # self.info_gridlines_screen.hide()
         # Crear y mostrar ColumnDataScreen
         if not self.column_data_screen:
             self.column_data_screen = ColumnDataScreen(
                 main_menu_ref=self,
                 stories_window_ref= self.info_stories_screen,
-                gridlines_window_ref= self.info_gridlines_screen,
+                gridlines_window_ref= None, # modificacion
                 section_designer_window_ref=self.section_designer_screen,
                 sap_model_object=sap_model,
                 column_data=data_cols_labels_story,
                 rect_sections=sections,
                 rebars=rebars,
             )
-            self.info_gridlines_screen.datos_para_renombrar.connect(self.column_data_screen.realizar_renombrado)
+            # self.info_gridlines_screen.datos_para_renombrar.connect(self.column_data_screen.realizar_renombrado)
         else:
             # Si ya existe, actualiza la referencia al sap_model por si acaso
             self.column_data_screen.sap_model = self.sap_model_connected
