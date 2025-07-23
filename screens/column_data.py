@@ -75,7 +75,7 @@ class ColumnDataScreen(QWidget):
         self.btn_grid_lines = QPushButton("Grid lines")
         self.btn_section_editor = QPushButton("Section Editor")
         self.btn_renombrar_detalle = QPushButton("Renombrar Detalle")
-        self.btn_confinement_calculator = QPushButton("Confinement Calculator")
+        self.btn_confinement_calculator = QPushButton("Calculos de Confinamiento")
         
         info_button_layout.addWidget(self.btn_info_stories)
         info_button_layout.addWidget(self.btn_grid_lines)
@@ -369,6 +369,7 @@ class ColumnDataScreen(QWidget):
         self.btn_grid_lines.setStyleSheet(action_button_style)
         self.btn_section_editor.setStyleSheet(action_button_style)
         self.btn_renombrar_detalle.setStyleSheet(action_button_style)
+        self.btn_confinement_calculator.setStyleSheet(action_button_style)
         
         
 
