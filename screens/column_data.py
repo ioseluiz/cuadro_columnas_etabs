@@ -413,7 +413,7 @@ class ColumnDataScreen(QWidget):
             # Comprobar si la fila debe ser visible
             gridline_match = not gridline_filter or gridline_text == gridline_filter
             detalle_match = not detalle_filter or detalle_text == detalle_filter
-            section_match = not section_filter or section_text in section_filter
+            section_match = not section_filter or section_filter in section_text
             group_match = not group_filter or group_text == group_filter
 
             # La fila es visible solo si coincide con todos los filtros

@@ -356,9 +356,9 @@ def get_story_lable_col_name(sap_model):
                         # Get bxh
                         b = min(info["t3"], info["t2"])
                         h = max(info["t3"], info["t2"])
-                        info["depth"] = h
-                        info["width"] = b
-                        info["bxh"] = f"{b}x{h}"
+                        info["depth"] = int(h)
+                        info["width"] = int(b)
+                        info["bxh"] = f"{int(b)}x{int(h)}"
                     else:
                         info["t3"] = None
                         info["t2"] = None
