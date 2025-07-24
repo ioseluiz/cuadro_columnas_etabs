@@ -34,7 +34,7 @@ class ConfinementScreen(QWidget):
     """
     Una nueva pantalla para mostrar los cálculos de confinamiento de columnas.
     """
-    def __init__(self, section_data_list):
+    def __init__(self, section_data_list, section_designer_window_ref=None):
         """
         Inicializa la pantalla de cálculo de confinamiento.
 
@@ -43,6 +43,7 @@ class ConfinementScreen(QWidget):
         """
         super().__init__()
         self.initial_section_data_list = section_data_list
+        self.section_designer_window_ref = section_designer_window_ref
         self.setWindowTitle("Cálculo de Confinamiento")
         self.setGeometry(200, 200, 1800, 600)
 
@@ -259,5 +260,21 @@ class ConfinementScreen(QWidget):
         print("Tabla recalculada.")
 
     def open_section_designer(self, row):
-        section_name = self.table.item(row, self.header_map["Sección"]).text()
+        # Obtener el nombre de la sección de la tabla
+        section_name_item = self.table.item(row, self.header_map["Sección"])
+        if not section_name_item:
+            print("Error: No se pudo obtener el nombre de la sección.")
+            return
+            
+        section_name = section_name_item.text()
         print(f"Abriendo Section Designer para: {section_name} (Fila {row})")
+
+        # Verificar si tenemos una referencia válida a la ventana del diseñador
+        if self.section_designer_window_ref:
+            # Llamar al nuevo método para seleccionar la sección
+            self.section_designer_window_ref.set_selected_section(section_name)
+            # Mostrar la ventana del diseñador
+            self.section_designer_window_ref.show()
+            self.section_designer_window_ref.activateWindow() # Traer al frente
+        else:
+            print("Error: La referencia a SectionDesignerScreen no fue proporcionada.")

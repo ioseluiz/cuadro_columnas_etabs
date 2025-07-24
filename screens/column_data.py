@@ -434,6 +434,7 @@ class ColumnDataScreen(QWidget):
     def exportar_excel_action(self):
         print("Click Exportar a Excel")
                 
+        self._ensure_gridlines_window_exists()
         
         column_list_dict = []
         stories_list_dict = []
@@ -738,6 +739,31 @@ class ColumnDataScreen(QWidget):
     def show_info_stories(self):
         self.stories_window_ref.show()
         
+    def _ensure_gridlines_window_exists(self):
+        """
+        Crea la instancia de la ventana de gridlines si no existe.
+        Esta función centraliza la lógica de creación para ser usada por
+        múltiples métodos (mostrar, exportar, etc.).
+        """
+        # La condición previene que se cree una nueva ventana si ya existe una.
+        if self.gridlines_window_ref is None:
+            print("Instanciando InfoGridLinesScreen en segundo plano...")
+            # 1. Agrupar los GridLines usando la función existente
+            preloaded_groups = self._group_identical_gridlines_from_table()
+            
+            # 2. Actualizar la columna "Group" en la tabla principal
+            self._update_group_column_in_table(preloaded_groups)
+
+            # 3. Instanciar la ventana de InfoGridLines, pasando los datos
+            self.gridlines_window_ref = InfoGridLinesScreen(
+                gridlines_data=self._raw_gridlines_data,
+                groups=preloaded_groups
+            )
+            
+            # 4. Conectar sus señales
+            self.gridlines_window_ref.datos_para_renombrar.connect(self.realizar_renombrado)
+            self.gridlines_window_ref.set_main_column_table(self.table_rectangular_armado)
+        
     def _extract_unique_gridlines(self, column_data):
         """Extrae información única de GridLines (ID, x, y) de los datos de columnas."""
         if not column_data:
@@ -808,30 +834,12 @@ class ColumnDataScreen(QWidget):
         
     def show_info_gridlines(self):
         """
-        Gestiona la creación y visualización de la ventana de información de GridLines,
-        incluyendo la agrupación y actualización de la tabla principal.
+        Gestiona la creación (si es necesario) y visualización de la ventana de GridLines.
         """
-        # Si la ventana no existe o fue cerrada, se crea una nueva.
-        if self.gridlines_window_ref is None or not self.gridlines_window_ref.isVisible():
-            # 1. Agrupar los GridLines usando la función existente
-            print("Agrupando GridLines idénticos desde la tabla...")
-            preloaded_groups = self._group_identical_gridlines_from_table()
-            print(f"Grupos encontrados: {preloaded_groups}")
-
-            # 2. Actualizar la columna "Group" en la tabla de datos principal (NUEVO PASO)
-            self._update_group_column_in_table(preloaded_groups)
-
-            # 3. Instanciar la ventana de InfoGridLines, pasando los datos y los grupos
-            self.gridlines_window_ref = InfoGridLinesScreen(
-                gridlines_data=self._raw_gridlines_data,
-                groups=preloaded_groups
-            )
-            
-            # 4. Conectar la señal para renombrar y pasar la referencia de la tabla
-            self.gridlines_window_ref.datos_para_renombrar.connect(self.realizar_renombrado)
-            self.gridlines_window_ref.set_main_column_table(self.table_rectangular_armado)
+        # 1. Asegurarse de que el objeto de la ventana exista
+        self._ensure_gridlines_window_exists()
         
-        # 5. Mostrar la ventana
+        # 2. Mostrar la ventana
         self.gridlines_window_ref.show()
         self.gridlines_window_ref.activateWindow() # Traer al frente
         

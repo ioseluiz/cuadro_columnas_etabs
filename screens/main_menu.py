@@ -445,7 +445,7 @@ class MainMenuScreen(QMainWindow):
             
         # Crear y esconder ConfinementScreen
         if not self.confinement_screen:
-            self.confinement_screen = ConfinementScreen(section_data_list)
+            self.confinement_screen = ConfinementScreen(section_data_list, section_designer_window_ref=self.section_designer_screen)
             self.confinement_screen.hide()
             
             # self.info_gridlines_screen.hide()

@@ -337,6 +337,21 @@ class SectionDesignerScreen(QMainWindow):
         draw_button = QPushButton("Dibujar / Actualizar"); draw_button.clicked.connect(lambda: self.generate_drawing(reset_view=True))
         main_layout.addWidget(draw_button); dock.setWidget(controls_widget)
         self._populate_sections_dropdown()
+        
+    def set_selected_section(self, section_name):
+        """
+        Busca una sección por su nombre en el QComboBox y la selecciona.
+        
+        Args:
+            section_name (str): El nombre de la sección a seleccionar.
+        """
+        index = self.section_selector.findText(section_name, Qt.MatchFixedString)
+        if index >= 0:
+            self.section_selector.setCurrentIndex(index)
+            # El cambio de índice activará automáticamente _on_section_selected,
+            # que cargará y dibujará la sección correcta.
+        else:
+            print(f"Advertencia: No se encontró la sección '{section_name}' en el Section Designer.")
 
     def handle_canvas_click(self, world_pos):
         world_x, world_y = world_pos
