@@ -722,14 +722,18 @@ def get_rectangular_concrete_sections(sapModel):
         
         file_name, mat_prop, t3, t2, color, notes, guid, ret_rect = (
                 sapModel.PropFrame.GetRectangle(section_name)
-            )     
+            )
+        mat_prop_conc = mat_prop
         # Obtener las propiedades del refuerzo
         mat_prop, mat_conf, pattern, conf_type, cover, num_c_bars, num_r3, num_r2, rebar_size, tie_size, tie_spacing, num_2d_tie, num_3d_tie, to_be_designed, ret_rebar= sapModel.PropFrame.GetRebarColumn(section_name)
         if ret_rebar == 0:
+            print(mat_prop)
+            fc_value = get_fc_concrete(sapModel, mat_prop_conc)
             section_dict = {
                 "section": section_name,
                 "b": t2,  # Convertir a mm
                 "h": t3,  # Convertir a mm
+                "fc": fc_value,
                 "cover": cover,  # Convertir a mm
                 "rebar_size": rebar_size,
                 "num_bars_2": num_r2,

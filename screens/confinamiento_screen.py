@@ -77,7 +77,8 @@ class ConfinementScreen(QWidget):
         """
         Devuelve el área de una barra de refuerzo dado su número.
         """
-        rebar_type_str = f"#{rebar_type_num}"
+        
+        rebar_type_str = rebar_type_num
         for rebar in REBAR_PROPERTIES_CM:
             if rebar['type'] == rebar_type_str:
                 return rebar['area']
@@ -87,7 +88,8 @@ class ConfinementScreen(QWidget):
         """
         Devuelve el diámetro de una barra de refuerzo dado su número.
         """
-        rebar_type_str = f"#{rebar_type_num}"
+        print(rebar_type_num, type(rebar_type_num))
+        rebar_type_str = rebar_type_num
         for rebar in REBAR_PROPERTIES_CM:
             if rebar['type'] == rebar_type_str:
                 return rebar['diameter']
@@ -105,9 +107,11 @@ class ConfinementScreen(QWidget):
             n_b_bc1 = int(current_data.get("N_b bc1", 1))
             n_b_bc2 = int(current_data.get("N_b bc2", 1))
             fy = 4200
-
+            print(rebar_size_long)
+           
             d_est = self.get_rebar_diameter(rebar_size_est)
             d_long = self.get_rebar_diameter(rebar_size_long)
+            print(d_long)
             a_est = self.get_rebar_area(rebar_size_est)
             a_long = self.get_rebar_area(rebar_size_long)
 
@@ -153,6 +157,7 @@ class ConfinementScreen(QWidget):
             }
         except (ValueError, TypeError) as e:
             print(f"Error en los datos de entrada para el cálculo: {e}")
+            print(current_data)
             return {}
 
     def populate_table(self):
@@ -195,6 +200,7 @@ class ConfinementScreen(QWidget):
             }
 
             rebar_size_est = section_data.get("estribo", 4)
+            print(rebar_size_est)
             rebar_size_long = section_data.get("rebar_size", 8)
 
             calculated_data = self.calculate_confinement(initial_data, rebar_size_est, rebar_size_long)
