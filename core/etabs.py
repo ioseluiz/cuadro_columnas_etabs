@@ -7,7 +7,7 @@ MAT_TYPE_CONCRETE = 2
 # MAT_TYPE_NODESIGN = 3
 # MAT_TYPE_ALUMINIUM = 4
 # MAT_TYPE_COLDFORMED = 5
-# MAT_TYPE_REBAR = 6
+MAT_TYPE_REBAR = 6
 # MAT_TYPE_TENDON = 7
 # MAT_TYPE_MASONRY = 8
 
@@ -499,6 +499,35 @@ def get_rectangular_col_dimensions(sap_model, section):
             return t3, t2
     return None, None
 
+def get_fy_steel(sap_model, material_name):
+    """
+    Obtiene la resistencia a la fluencia (Fy) de un material de refuerzo (rebar).
+
+    Args:
+        sap_model: El objeto SapModel activo de la API de ETABS.
+        material_name (str): El nombre del material de refuerzo.
+
+    Returns:
+        float: El valor de Fy, o None si ocurre un error.
+    """
+    if not material_name:
+        return None
+
+    try:
+        # La API devuelve una tupla de propiedades del acero. Fy es el primer valor.
+        # Firma: GetOSteel_1(Name, Fy, Fu, EFy, EFu, ...)
+        props = sap_model.PropMaterial.GetOSteel_1(material_name)
+        
+        # El último valor de la tupla es el código de retorno (0 si es exitoso)
+        if props[-1] == 0:
+            fy = props[0]
+            return round(fy)
+        else:
+            return None
+    except Exception as e:
+        print(f"Error al obtener Fy para el material '{material_name}': {e}")
+        return None
+
 
 def get_col_material(sap_model, col_section):
     material_defined = sap_model.PropFrame.GetMaterial(col_section)[0]
@@ -701,48 +730,135 @@ def clasificar_punto_por_elevacion(lista_niveles, elevacion_punto):
 
 def get_rectangular_concrete_sections(sapModel):
     """
-    Extrae todas las secciones transversales rectangulares de concreto de un modelo de ETABS.
+    Extrae las propiedades de las secciones de concreto rectangulares que se 
+    UTILIZAN COMO COLUMNAS en el modelo de ETABS.
 
     Args:
         sapModel: El objeto COM de ETABS.
 
     Returns:
         list: Una lista de diccionarios, donde cada diccionario representa una
-              sección transversal rectangular de concreto.
+              sección de columna rectangular única.
     """
-    print("RECTANGULAR SECTIONS")
-    all_sections = []
-    # Obtener todos los nombres de las secciones de los marcos
-    ret = sapModel.PropFrame.GetNameList()
+    print("Iniciando la extracción de secciones de COLUMNAS rectangulares...")
+
+    # --- 1. Identificar todas las secciones que se usan en elementos de columna ---
+    column_section_names = set()  # Usar un 'set' para evitar duplicados
     
-    frame_section_names = ret[1]
-    # print(frame_section_names)
-    rect_sections = []
-    for section_name in frame_section_names:
+    # Obtener la lista de todos los elementos frame en el modelo
+    num_frames, frame_names, ret = sapModel.FrameObj.GetNameList()
+    if ret != 0:
+        print("Error al obtener la lista de elementos frame.")
+        return []
+
+    print(f"Analizando {num_frames} elementos frame para identificar cuáles son columnas...")
+    for frame_name in frame_names:
+        # Verificar la orientación de diseño del elemento
+        design_orientation, ret_orient = sapModel.FrameObj.GetDesignOrientation(frame_name)
         
-        file_name, mat_prop, t3, t2, color, notes, guid, ret_rect = (
-                sapModel.PropFrame.GetRectangle(section_name)
-            )
-        mat_prop_conc = mat_prop
-        # Obtener las propiedades del refuerzo
-        mat_prop, mat_conf, pattern, conf_type, cover, num_c_bars, num_r3, num_r2, rebar_size, tie_size, tie_spacing, num_2d_tie, num_3d_tie, to_be_designed, ret_rebar= sapModel.PropFrame.GetRebarColumn(section_name)
-        if ret_rebar == 0:
-            print(mat_prop)
-            fc_value = get_fc_concrete(sapModel, mat_prop_conc)
-            section_dict = {
-                "section": section_name,
-                "b": t2,  # Convertir a mm
-                "h": t3,  # Convertir a mm
-                "fc": fc_value,
-                "cover": cover,  # Convertir a mm
-                "rebar_size": rebar_size,
-                "num_bars_2": num_r2,
-                "num_bars_3": num_r3,
-                "stirrup_size": tie_size,
-                "num_crossties_2": num_2d_tie,
-                "num_crossties_3": num_3d_tie
-            }
-            print(section_dict)
-            all_sections.append(section_dict)
-                    
+        # design_orientation == 1 significa que es una columna
+        if ret_orient == 0 and design_orientation == 1:
+            # Si es una columna, obtener el nombre de su sección
+            section_name, _, ret_sec = sapModel.FrameObj.GetSection(frame_name)
+            if ret_sec == 0 and section_name:
+                column_section_names.add(section_name)
+
+    if not column_section_names:
+        print("No se encontraron secciones asignadas a elementos de tipo columna en el modelo.")
+        return []
+
+    print(f"\nSe identificaron {len(column_section_names)} secciones únicas de columna: {list(column_section_names)}")
+
+    # --- 2. Extraer las propiedades para las secciones de columna identificadas ---
+    all_sections = []
+    print("\nExtrayendo detalles de las secciones de columna...")
+
+    for section_name in sorted(list(column_section_names)): # Iterar sobre la lista única y ordenada
+        
+        # Obtener dimensiones (esto también nos confirma que es rectangular)
+        _, mat_prop_conc, t3, t2, _, _, _, ret_rect = sapModel.PropFrame.GetRectangle(section_name)
+        if ret_rect != 0:
+            # Si la sección de columna no es rectangular, la omitimos
+            print(f"  - Adv: La sección de columna '{section_name}' no es rectangular. Omitiendo.")
+            continue
+
+        # Obtener datos de refuerzo (esto nos confirma que tiene refuerzo de columna)
+        mat_prop_rebar, _, _, _, cover, _, num_r3, num_r2, rebar_size, tie_size, _, num_2d_tie, num_3d_tie, _, ret_rebar = sapModel.PropFrame.GetRebarColumn(section_name)
+        if ret_rebar != 0:
+            # Si no tiene refuerzo de columna definido, la omitimos
+            print(f"  - Adv: La sección de columna '{section_name}' no tiene refuerzo de columna definido. Omitiendo.")
+            continue
+
+        # Obtener propiedades de materiales
+        fc_value = get_fc_concrete(sapModel, mat_prop_conc)
+        fy_value = get_fy_steel(sapModel, mat_prop_rebar)
+        
+        section_dict = {
+            "section": section_name,
+            "b": t2,
+            "h": t3,
+            "fc": fc_value,
+            "fy": fy_value,
+            "cover": cover,
+            "rebar_size": rebar_size,
+            "num_bars_2": num_r2,
+            "num_bars_3": num_r3,
+            "stirrup_size": tie_size,
+            "num_crossties_2": num_2d_tie,
+            "num_crossties_3": num_3d_tie
+        }
+        all_sections.append(section_dict)
+        print(f"  + Procesada sección de columna: '{section_name}'")
+        
+    print("\nProceso finalizado.")
     return all_sections
+
+# def get_rectangular_concrete_sections(sapModel):
+#     """
+#     Extrae todas las secciones transversales rectangulares de concreto de un modelo de ETABS.
+
+#     Args:
+#         sapModel: El objeto COM de ETABS.
+
+#     Returns:
+#         list: Una lista de diccionarios, donde cada diccionario representa una
+#               sección transversal rectangular de concreto.
+#     """
+#     print("RECTANGULAR SECTIONS")
+#     all_sections = []
+#     # Obtener todos los nombres de las secciones de los marcos
+#     ret = sapModel.PropFrame.GetNameList()
+    
+#     frame_section_names = ret[1]
+#     # print(frame_section_names)
+#     rect_sections = []
+#     for section_name in frame_section_names:
+        
+#         file_name, mat_prop, t3, t2, color, notes, guid, ret_rect = (
+#                 sapModel.PropFrame.GetRectangle(section_name)
+#             )
+#         mat_prop_conc = mat_prop
+#         # Obtener las propiedades del refuerzo
+#         mat_prop, mat_conf, pattern, conf_type, cover, num_c_bars, num_r3, num_r2, rebar_size, tie_size, tie_spacing, num_2d_tie, num_3d_tie, to_be_designed, ret_rebar= sapModel.PropFrame.GetRebarColumn(section_name)
+#         if ret_rebar == 0:
+#             print(mat_prop)
+#             fc_value = get_fc_concrete(sapModel, mat_prop_conc)
+#             fy_value = get_fy_steel(sapModel, mat_prop)
+#             section_dict = {
+#                 "section": section_name,
+#                 "b": t2,  # Convertir a mm
+#                 "h": t3,  # Convertir a mm
+#                 "fc": fc_value,
+#                 "fy": fy_value,
+#                 "cover": cover,  # Convertir a mm
+#                 "rebar_size": rebar_size,
+#                 "num_bars_2": num_r2,
+#                 "num_bars_3": num_r3,
+#                 "stirrup_size": tie_size,
+#                 "num_crossties_2": num_2d_tie,
+#                 "num_crossties_3": num_3d_tie
+#             }
+#             print(section_dict)
+#             all_sections.append(section_dict)
+                    
+#     return all_sections

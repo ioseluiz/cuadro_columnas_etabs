@@ -42,8 +42,6 @@ class ConfinementScreen(QWidget):
             section_data_list (list): Una lista con diccionarios de datos de secciones transversales.
         """
         super().__init__()
-        # El constructor ahora no modifica 'pu' a None, 
-        # para que la lógica en populate_table funcione correctamente.
         self.initial_section_data_list = section_data_list
         self.setWindowTitle("Cálculo de Confinamiento")
         self.setGeometry(200, 200, 1800, 600)
@@ -74,10 +72,6 @@ class ConfinementScreen(QWidget):
         self.populate_table()
 
     def get_rebar_area(self, rebar_type_num):
-        """
-        Devuelve el área de una barra de refuerzo dado su número.
-        """
-        
         rebar_type_str = rebar_type_num
         for rebar in REBAR_PROPERTIES_CM:
             if rebar['type'] == rebar_type_str:
@@ -85,10 +79,6 @@ class ConfinementScreen(QWidget):
         return 0
 
     def get_rebar_diameter(self, rebar_type_num):
-        """
-        Devuelve el diámetro de una barra de refuerzo dado su número.
-        """
-        print(rebar_type_num, type(rebar_type_num))
         rebar_type_str = rebar_type_num
         for rebar in REBAR_PROPERTIES_CM:
             if rebar['type'] == rebar_type_str:
@@ -106,12 +96,10 @@ class ConfinementScreen(QWidget):
             rec = float(current_data.get("rec(cm)", 0))
             n_b_bc1 = int(current_data.get("N_b bc1", 1))
             n_b_bc2 = int(current_data.get("N_b bc2", 1))
-            fy = 4200
-            print(rebar_size_long)
-           
+            fy = float(current_data.get("fy (kg/cm2)", 4200)) # Se lee fy desde los datos actuales
+
             d_est = self.get_rebar_diameter(rebar_size_est)
             d_long = self.get_rebar_diameter(rebar_size_long)
-            print(d_long)
             a_est = self.get_rebar_area(rebar_size_est)
             a_long = self.get_rebar_area(rebar_size_long)
 
@@ -126,7 +114,7 @@ class ConfinementScreen(QWidget):
             fc_kgcm2 = fc_psi * 0.070307
             
             ash_sbc = 0
-            if ach > 0:
+            if ach > 0 and fy > 0:
                 ash_sbc_1 = 0.3 * (ag / ach - 1) * (fc_kgcm2 / fy)
                 ash_sbc_2 = 0.09 * (fc_kgcm2 / fy)
                 ash_sbc = max(ash_sbc_1, ash_sbc_2)
@@ -137,12 +125,12 @@ class ConfinementScreen(QWidget):
             c_cm = "Placeholder C"
             d_cm = "Placeholder D"
 
+            # Se elimina 'fy' del diccionario de retorno, ya que es un dato de entrada
             return {
                 "D_est (cm)": f"#{rebar_size_est} ({d_est:.3f})",
                 "D_long (cm)": f"#{rebar_size_long} ({d_long:.3f})",
                 "A_est (cm2)": a_est,
                 "A_long (cm2)": a_long,
-                "fy (kg/cm2)": fy,
                 "bc1 (cm)": bc1,
                 "bc2 (cm)": bc2,
                 "X1 (cm)": x1,
@@ -164,13 +152,15 @@ class ConfinementScreen(QWidget):
         """
         Llena la tabla con los resultados de los cálculos.
         """
+        # Se mueve 'fy (kg/cm2)' a las cabeceras de entrada
         self.input_headers = [
             "Pu(kg)", "H (cm)", "N_b bc2", "L (cm)", 
-            "N_b bc1", "rec(cm)", "f'c (psi)"
+            "N_b bc1", "rec(cm)", "f'c (psi)", "fy (kg/cm2)"
         ]
+        # Se elimina 'fy (kg/cm2)' de las cabeceras calculadas
         self.calculated_headers = [
             "D_est (cm)", "D_long (cm)", "A_est (cm2)", "A_long (cm2)",
-            "fy (kg/cm2)", "bc1 (cm)", "bc2 (cm)", "X1 (cm)", "X2 (cm)",
+            "bc1 (cm)", "bc2 (cm)", "X1 (cm)", "X2 (cm)",
             "Ach (cm2)", "Ash/Sbc (req)", "hx", "(a) (cm)", "(b) (cm)",
             "(c) (cm)", "(d) (cm)",
         ]
@@ -187,7 +177,8 @@ class ConfinementScreen(QWidget):
             pu_value = section_data.get("pu")
             if pu_value is None:
                 pu_value = 3000
-
+            
+            # Se añade 'fy' a los datos iniciales leídos del constructor
             initial_data = {
                 "Sección": section_data.get("name", f"Sección {row+1}"),
                 "Pu(kg)": pu_value,
@@ -197,11 +188,11 @@ class ConfinementScreen(QWidget):
                 "N_b bc1": section_data.get("n_b_bc1", 6),
                 "rec(cm)": section_data.get("rec", 4.0),
                 "f'c (psi)": section_data.get("f'c", 8500),
+                "fy (kg/cm2)": section_data.get("fy", 4200),
             }
 
-            rebar_size_est = section_data.get("estribo", 4)
-            print(rebar_size_est)
-            rebar_size_long = section_data.get("rebar_size", 8)
+            rebar_size_est = section_data.get("estribo", '#4')
+            rebar_size_long = section_data.get("rebar_size", '#8')
 
             calculated_data = self.calculate_confinement(initial_data, rebar_size_est, rebar_size_long)
             full_data_row = {**initial_data, **calculated_data}
@@ -211,6 +202,7 @@ class ConfinementScreen(QWidget):
                 if col_index is not None:
                     formatted_value = f"{value:.4f}" if isinstance(value, float) else str(value)
                     item = QTableWidgetItem(formatted_value)
+                    # La lógica para hacer las celdas editables/no editables funciona sin cambios
                     if header not in self.input_headers and header != "Sección":
                         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                     self.table.setItem(row, col_index, item)
@@ -250,8 +242,8 @@ class ConfinementScreen(QWidget):
                     current_data[header] = item.text()
             
             section_data = self.initial_section_data_list[row]
-            rebar_size_est = section_data.get("estribo", 4)
-            rebar_size_long = section_data.get("rebar_size", 8)
+            rebar_size_est = section_data.get("estribo", '#4')
+            rebar_size_long = section_data.get("rebar_size", '#8')
             
             calculated_data = self.calculate_confinement(current_data, rebar_size_est, rebar_size_long)
 
@@ -269,18 +261,3 @@ class ConfinementScreen(QWidget):
     def open_section_designer(self, row):
         section_name = self.table.item(row, self.header_map["Sección"]).text()
         print(f"Abriendo Section Designer para: {section_name} (Fila {row})")
-        
-# if __name__ == '__main__':
-#     app = QApplication(sys.argv)
-    
-#     mock_section_data_list = [
-#         {"name": "C-60x125-26N8-CO8.5-EN4/7", "b": 125.0, "h": 60.0, "f'c": 8500, "rebar_size": 8, "estribo": 4, "pu": 3000, "rec": 4.0, "n_b_bc2": 4, "n_b_bc1": 6},
-#         {"name": "C-70x140-30N10-CO9.0-EN5/8", "b": 140.0, "h": 70.0, "f'c": 9000, "rebar_size": 10, "estribo": 5, "pu": 3500, "rec": 4.5, "n_b_bc2": 5, "n_b_bc1": 7},
-#         {"name": "C-50x100-20N6-CO7.5-EN3/6", "b": 100.0, "h": 50.0, "f'c": 7500, "rebar_size": 6, "estribo": 3, "pu": 2500, "rec": 3.5, "n_b_bc2": 3, "n_b_bc1": 5},
-#         {"name": "C-80x160-36N12-CO10.0-EN6/9", "b": 160.0, "h": 80.0, "f'c": 10000, "rebar_size": 12, "estribo": 6, "pu": 4000, "rec": 5.0, "n_b_bc2": 6, "n_b_bc1": 8},
-#         {"name": "C-65x130-28N9-CO8.8-EN4.5/7.5", "b": 130.0, "h": 65.0, "f'c": 8800, "rebar_size": 9, "estribo": 4.5, "pu": 3200, "rec": 4.2, "n_b_bc2": 4, "n_b_bc1": 6}
-#     ]
-    
-#     screen = ConfinementScreen(mock_section_data_list)
-#     screen.show()
-#     sys.exit(app.exec_())
