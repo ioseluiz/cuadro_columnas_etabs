@@ -472,6 +472,14 @@ class SectionDesignerScreen(QMainWindow):
         if unit == 'pulgadas': self.b_input.setText("20.0"); self.h_input.setText("30.0"); self.cover_input.setText("1.5")
         elif unit == 'cm': self.b_input.setText("50.0"); self.h_input.setText("75.0"); self.cover_input.setText("4.0")
         elif unit == 'mm': self.b_input.setText("500.0"); self.h_input.setText("750.0"); self.cover_input.setText("40.0")
+        
+    def closeEvent(self, event):
+        """
+        Sobrescribe el evento de cierre de la ventana.
+        En lugar de cerrar y destruir la ventana, solo la oculta.
+        """
+        self.hide()
+        event.ignore()
 
     def generate_drawing(self, reset_view=True):
         self._save_current_section_data()
@@ -525,3 +533,5 @@ class SectionDesignerScreen(QMainWindow):
             
         except (ValueError, KeyError) as e: self.statusBar().showMessage(f"Error en datos: {e}")
         except Exception as e: self.statusBar().showMessage(f"Error inesperado: {e}")
+        
+    
