@@ -127,8 +127,8 @@ class ConfinementScreen(QWidget):
 
             # Se elimina 'fy' del diccionario de retorno, ya que es un dato de entrada
             return {
-                "D_est (cm)": f"#{rebar_size_est} ({d_est:.3f})",
-                "D_long (cm)": f"#{rebar_size_long} ({d_long:.3f})",
+                "D_est (cm)": f"{rebar_size_est} ({d_est:.3f})",
+                "D_long (cm)": f"{rebar_size_long} ({d_long:.3f})",
                 "A_est (cm2)": a_est,
                 "A_long (cm2)": a_long,
                 "bc1 (cm)": bc1,
