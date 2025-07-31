@@ -174,7 +174,7 @@ class MainMenuScreen(QMainWindow):
         # --- Menu Buttons ---
         # self.btn_start_game = QPushButton("Crear cuadro de cols")
         # self.btn_connect_etabs = QPushButton("Conectar con archivo de ETABS abierto")
-        self.btn_identify_columns = QPushButton("Cuadro de Columnas")
+        self.btn_identify_columns = QPushButton("Conectar a Archivo ETABS")
         # Boton para cargar datos
         self.btn_load_data_from_file = QPushButton("Cargar Datos desde Archivo")
         
