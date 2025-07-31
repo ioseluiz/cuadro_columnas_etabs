@@ -411,7 +411,8 @@ def get_story_lable_col_name(sap_model):
     df_columns_sorted = df_columns.sort_values(by=["label", "z_start"])
 
     # Unique sections
-    df_section_selected = df_columns_sorted[["bxh", "As"]]
+    # df_section_selected = df_columns_sorted[["bxh", "As"]]
+    df_section_selected = df_columns_sorted[["r2_bars", "r3_bars", "estribo_r2", "estribo_r3"]]
     df_section_unique = df_section_selected.drop_duplicates()
 
     section_rows = len(df_section_unique)
@@ -442,7 +443,8 @@ def get_story_lable_col_name(sap_model):
 
     # 4. Merge with detail for section
     df_merged = pd.merge(
-        df_columns_sorted, df_section_unique, on=["bxh", "As"], how="left"
+        # df_columns_sorted, df_section_unique, on=["bxh", "As"], how="left"
+        df_columns_sorted, df_section_unique, on=["r2_bars", "r3_bars", "estribo_r2", "estribo_r3"], how="left"
     )
 
     sections = df_merged["detail"].unique()

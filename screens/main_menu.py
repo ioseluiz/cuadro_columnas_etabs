@@ -228,7 +228,10 @@ class MainMenuScreen(QMainWindow):
         self.progress_dialog = QProgressDialog("Cargando datos desde archivo...", None, 0, 0, self)
         self.progress_dialog.setWindowTitle("Procesando Archivo")
         self.progress_dialog.setWindowModality(Qt.WindowModal)
+        self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.show()
+        
+        QApplication.processEvents()
         
         # Configurar el Thread y el Worker
         self.thread = QThread()
