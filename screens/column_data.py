@@ -54,13 +54,19 @@ class ColumnDataScreen(QWidget):
     Pantalla para mostrar y gestionar datos de columnas después de conectar con ETABS.
     Inspirada en la imagen proporcionada.
     """
-    def __init__(self, main_menu_ref,stories_window_ref, gridlines_window_ref, section_designer_window_ref,confinement_screen_ref,sap_model_object=None, parent=None, column_data=None, rect_sections=None, rebars=None):
+    def __init__(self, main_menu_ref,stories_window_ref, gridlines_window_ref, section_designer_window_ref,confinement_screen_ref,sap_model_object=None, parent=None, column_data=None, rect_sections=None, rebars=None,gridlines_data=None):
         super().__init__(parent)
         self.main_menu_ref = main_menu_ref
         self.stories_window_ref = stories_window_ref
         self.gridlines_window_ref = gridlines_window_ref
-        # Almacenamos los datos de gridlines originales para usarlos despues
-        self._raw_gridlines_data = self._extract_unique_gridlines(column_data)
+        # Lógica actualizada para manejar los datos de los ejes:
+        if gridlines_data:
+            # Si se proporcionan datos de ejes (desde un archivo), úsalos directamente.
+            self._raw_gridlines_data = gridlines_data
+        else:
+            # Si no (desde ETABS), extráelos de los datos de las columnas.
+            self._raw_gridlines_data = self._extract_unique_gridlines(column_data)
+        
         self.section_designer_window_ref = section_designer_window_ref
         self.confinement_screen_ref = confinement_screen_ref
         self.sap_model = sap_model_object
@@ -404,6 +410,7 @@ class ColumnDataScreen(QWidget):
 
         # 1. Preparar los datos de la tabla (como antes)
         table_data = []
+        
         num_filas = self.table_rectangular_armado.rowCount()
         num_columnas = self.table_rectangular_armado.columnCount()
         table_headers = [self.table_rectangular_armado.horizontalHeaderItem(col).text() for col in range(num_columnas)]
@@ -433,6 +440,7 @@ class ColumnDataScreen(QWidget):
                 "sections": self.rect_sections,
                 "rebars": self.rebars
             },
+            "gridlines_data": self._raw_gridlines_data,
             "table_data": table_data
         }
             
@@ -881,8 +889,7 @@ class ColumnDataScreen(QWidget):
             
         unique_gridlines = df[['GridLine', 'pos_x', 'pos_y']].drop_duplicates().to_dict('records')
         
-        # Convertir a la tupla (id, x, y) que espera InfoGridLinesScreen
-        return [(str(g['GridLine']), g['pos_x'], g['pos_y']) for g in unique_gridlines]
+        return unique_gridlines # <-- Devolver la lista de diccionarios
     
     def _group_identical_gridlines_from_table(self):
         """

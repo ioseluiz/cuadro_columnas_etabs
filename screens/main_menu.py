@@ -116,6 +116,8 @@ class FileLoaderWorker(QObject):
             sections_list = combo_options.get('sections', [])
             rebars_list = combo_options.get('rebars', [])
             
+            gridlines_data = loaded_json.get('gridlines_data', [])
+            
             if not table_data:
                 self.error.emit("El archivo no contiene datos de la tabla o tiene un formato incorrecto.")
                 return
@@ -124,7 +126,8 @@ class FileLoaderWorker(QObject):
             data_to_emit = {
                 "table_data": table_data,
                 "sections_list": sections_list,
-                "rebars_list": rebars_list
+                "rebars_list": rebars_list,
+                "gridlines_data": gridlines_data
             }
             self.finished.emit(data_to_emit)
             
@@ -262,6 +265,9 @@ class MainMenuScreen(QMainWindow):
         if self.column_data_screen:
             self.column_data_screen.close()
             
+        # Extraemos los datos de los gridlines del diccionario recibido del worker
+        gridlines_list = data.get("gridlines_data", [])
+            
         self.column_data_screen = ColumnDataScreen(
             main_menu_ref=self,
             stories_window_ref=None,
@@ -271,7 +277,8 @@ class MainMenuScreen(QMainWindow):
             sap_model_object=None,
             column_data=data["table_data"],
             rect_sections=data["sections_list"],
-            rebars=data["rebars_list"]
+            rebars=data["rebars_list"],
+            gridlines_data=gridlines_list
         )
         
         self.column_data_screen.show()

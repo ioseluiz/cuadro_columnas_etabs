@@ -543,6 +543,7 @@ class InfoGridLinesScreen(QMainWindow):
         self.setGeometry(100, 100, 1200, 800)
 
         self.columns = {} 
+        self.gridlines_data = gridlines_data if gridlines_data is not None else []
         self.groups = groups if groups is not None else {}
         self.column_counter = 0
         self.main_column_table = None # Añadir atributo para la tabla
@@ -612,23 +613,46 @@ class InfoGridLinesScreen(QMainWindow):
         self.gl_widget.selection_changed_by_click_signal.connect(self.update_selection_from_gl)
 
     def _populate_from_initial_data(self, gridlines_data):
-        """Puebla las columnas iniciales a partir de la lista de datos."""
+        """
+        Puebla las columnas iniciales y la tabla a partir de la lista de datos,
+        leyendo correctamente desde una lista de diccionarios.
+        """
         if not isinstance(gridlines_data, list):
             print("Warning: gridlines_data no es una lista. No se cargarán columnas.")
             return
-            
+
         for item in gridlines_data:
             try:
-                cid, x, y = item
-                self._create_column(cid, x, y, refresh_ui=False)
-            except (ValueError, TypeError) as e:
-                print(f"Warning: Saltando item de datos con formato incorrecto: {item} ({e})")
-        
-        self.refresh_ui()
-        # ### INICIO DE CAMBIOS ###
-        self.gl_widget.fit_to_screen() # Centrar la vista después de cargar los datos
-        # ### FIN DE CAMBIOS ###
+                # ### INICIO DE LA CORRECCIÓN ###
+                # Se verifica si el 'item' es un diccionario o una lista para manejar ambos formatos de datos.
+                if isinstance(item, dict):
+                    # Procesa el formato de diccionario: {'GridLine': 'A', 'pos_x': 0, 'pos_y': 0}
+                    cid = str(item.get('GridLine'))
+                    x = float(item.get('pos_x'))
+                    y = float(item.get('pos_y'))
+                elif isinstance(item, list) and len(item) >= 3:
+                    # Procesa el formato de lista: ['A', 0, 0]
+                    cid = str(item[0])
+                    x = float(item[1])
+                    y = float(item[2])
+                else:
+                    # Si el formato es desconocido, se salta el item.
+                    print(f"Warning: Saltando item con formato desconocido: {item}")
+                    continue
+                # ### FIN DE LA CORRECCIÓN ###
 
+                # Llamar a la función existente que crea el objeto y lo añade a la lista self.columns
+                self._create_column(cid, x, y, refresh_ui=False)
+
+            except (ValueError, TypeError, KeyError) as e:
+                # Captura errores si las claves no existen o el tipo de dato es incorrecto
+                print(f"Warning: Saltando item de datos con formato incorrecto o claves faltantes: {item} ({e})")
+
+        # Una vez que todas las columnas se han creado en la lista self.columns,
+        # se refresca la UI, lo que llama a update_table() para poblar la tabla.
+        self.refresh_ui()
+        self.gl_widget.fit_to_screen()
+    
     def refresh_table(self):
         self.table.blockSignals(True)
         self.table.setRowCount(len(self.columns))
