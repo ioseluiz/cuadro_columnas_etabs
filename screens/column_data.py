@@ -1,6 +1,30 @@
 import sys
 from pathlib import Path
 from collections import defaultdict # Modificacion
+import json
+
+HEADER_TO_KEY_MAP = {
+    'Story': 'story',
+    'Frame_id': 'col_id',
+    'Start Z': 'z_start',
+    'End Z': 'z_end',
+    'Label': 'label',
+    'Sección': 'section',
+    'Material': 'material',
+    'Long. R2 Bars': 'r2_bars',
+    'Long. R3 Bars': 'r3_bars',
+    'Mat. Est.': 'Mat. Estribo',
+    'Rebar. Est.': 'Est. Rebar',
+    'Cover': 'cover',
+    'Detalle No.': 'detail',
+    'Rebar Estribo': 'Est. Rebar',  # La clave interna es la misma para ambas columnas de estribos
+    'nivel start': 'nivel_start',
+    'nivel end': 'nivel_end',
+}
+
+
+
+
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSpacerItem, QSizePolicy, QFileDialog,
@@ -39,6 +63,11 @@ class ColumnDataScreen(QWidget):
         self.confinement_screen_ref = confinement_screen_ref
         self.sap_model = sap_model_object
         
+        # -- Almacenar las listas de opciones
+        # Guardamos las listas para poder acceder a ellas al guardar el archivo
+        self.rect_sections = rect_sections if rect_sections is not None else []
+        self.rebars = rebars if rebars is not None else []
+        
         self.identificar_columnas_screen = None
         self.data_columns_for_render = None
         
@@ -55,14 +84,22 @@ class ColumnDataScreen(QWidget):
         
         self.btn_modificar_columnas = QPushButton("1. Reasignar Columnas")
         self.btn_exportar_excel = QPushButton("Exportar a Excel")
+        self.btn_guardar_datos = QPushButton("Guardar Datos")
         self.btn_exportar_planos = QPushButton("Exportar DXF")
         self.btn_actualizar_modelo = QPushButton("Actualizar el Modelo")
        
         
         # top_button_layout.addWidget(self.btn_modificar_columnas)
         top_button_layout.addWidget(self.btn_exportar_excel)
+        top_button_layout.addWidget(self.btn_guardar_datos)
         top_button_layout.addWidget(self.btn_exportar_planos)
         top_button_layout.addWidget(self.btn_actualizar_modelo)
+        
+        # --- Deshabilitar boton si no hay conexion a ETABS
+        if not self.sap_model:
+            self.btn_actualizar_modelo.setEnabled(False)
+            self.btn_actualizar_modelo.setToolTip("Deshabilitado en modo de carga de archivo")
+            
         
         
         self.main_layout.addLayout(top_button_layout)
@@ -329,6 +366,8 @@ class ColumnDataScreen(QWidget):
          # Conectar acciones (placeholders por ahora)
         self.btn_modificar_columnas.clicked.connect(self.load_column_data_action)
         self.btn_exportar_excel.clicked.connect(self.exportar_excel_action)
+        self.btn_guardar_datos.clicked.connect(self.guardar_datos_action)
+        
         self.btn_exportar_planos.clicked.connect(self.exportar_planos_action)
         self.btn_info_stories.clicked.connect(self.show_info_stories)
         self.btn_grid_lines.clicked.connect(self.show_info_gridlines)
@@ -338,6 +377,61 @@ class ColumnDataScreen(QWidget):
         
 
         self.apply_styles() # Aplicar algunos estilos básicos
+        
+    def guardar_datos_action(self):
+        """
+        Extrae los datos de la tabla y las opciones de los QComboBox,
+        y los guarda en un único archivo JSON estructurado.
+        """
+        options = QFileDialog.Options()
+        fileName, _ = QFileDialog.getSaveFileName(self, "Guardar Datos de Columnas", "",
+                                                  "JSON Files (*.json);;All Files (*)", options=options)
+        
+        if not fileName:
+            QMessageBox.information(self, "Cancelado", "La operación de guardado fue cancelada.")
+            return
+
+        # 1. Preparar los datos de la tabla (como antes)
+        table_data = []
+        num_filas = self.table_rectangular_armado.rowCount()
+        num_columnas = self.table_rectangular_armado.columnCount()
+        table_headers = [self.table_rectangular_armado.horizontalHeaderItem(col).text() for col in range(num_columnas)]
+
+        for fila in range(num_filas):
+            if self.table_rectangular_armado.isRowHidden(fila):
+                continue
+
+            diccionario_fila = {}
+            for columna in range(num_columnas):
+                header_text = table_headers[columna]
+                clave = HEADER_TO_KEY_MAP.get(header_text, header_text)
+
+                if columna in [6, 12, 14]: # Columnas QComboBox
+                    widget_combo = self.table_rectangular_armado.cellWidget(fila, columna)
+                    if isinstance(widget_combo, QComboBox):
+                        diccionario_fila[clave] = widget_combo.currentText()
+                else:
+                    item = self.table_rectangular_armado.item(fila, columna)
+                    diccionario_fila[clave] = item.text() if item and item.text() else ""
+            
+            table_data.append(diccionario_fila)
+            
+        # 2. Crear la estructura de datos final para guardar
+        data_to_save = {
+            "combo_options": {
+                "sections": self.rect_sections,
+                "rebars": self.rebars
+            },
+            "table_data": table_data
+        }
+            
+        # 3. Guardar el archivo JSON
+        try:
+            with open(fileName, 'w', encoding='utf-8') as f:
+                json.dump(data_to_save, f, ensure_ascii=False, indent=4)
+            QMessageBox.information(self, "Éxito", f"Los datos y opciones se han guardado exitosamente en:\n{fileName}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudieron guardar los datos.\nError: {e}")            
         
     def apply_styles(self):
         # Estilo básico para los botones de acción
@@ -364,6 +458,7 @@ class ColumnDataScreen(QWidget):
         self.btn_modificar_columnas.setStyleSheet(action_button_style)
         self.btn_exportar_excel.setStyleSheet(action_button_style)
         self.btn_exportar_planos.setStyleSheet(action_button_style)
+        self.btn_guardar_datos.setStyleSheet(action_button_style)
         self.btn_actualizar_modelo.setStyleSheet(action_button_style)
         self.btn_info_stories.setStyleSheet(action_button_style)
         self.btn_grid_lines.setStyleSheet(action_button_style)

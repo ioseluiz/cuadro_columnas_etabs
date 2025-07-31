@@ -1,4 +1,5 @@
 import sys
+import json
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -14,7 +15,8 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QScrollArea,
     QFrame,
-    QProgressDialog
+    QProgressDialog,
+    QMessageBox
 )
 import comtypes.client
 from PyQt5.QtGui import QFont, QPixmap
@@ -124,12 +126,16 @@ class MainMenuScreen(QMainWindow):
         # self.btn_start_game = QPushButton("Crear cuadro de cols")
         # self.btn_connect_etabs = QPushButton("Conectar con archivo de ETABS abierto")
         self.btn_identify_columns = QPushButton("Cuadro de Columnas")
+        # Boton para cargar datos
+        self.btn_load_data_from_file = QPushButton("Cargar Datos desde Archivo")
+        
         self.btn_exit = QPushButton("Salir del Programa")
 
         # Set object names for specific styling
         # self.btn_start_game.setObjectName("StdButton")
         # self.btn_connect_etabs.setObjectName("StdButton")
         self.btn_identify_columns.setObjectName("StdButton")
+        self.btn_load_data_from_file.setObjectName("StdButton")
         self.btn_exit.setObjectName("ExitButton")
 
         # --- Layout Management ---
@@ -141,6 +147,8 @@ class MainMenuScreen(QMainWindow):
         button_layout = QVBoxLayout()
         button_layout.setSpacing(15)
         button_layout.addWidget(self.btn_identify_columns)
+        button_layout.addWidget(self.btn_load_data_from_file)
+        
         # button_layout.addWidget(self.btn_start_game)
         # button_layout.addWidget(self.btn_connect_etabs)
         button_layout.addWidget(self.btn_exit)
@@ -154,11 +162,64 @@ class MainMenuScreen(QMainWindow):
         # self.btn_start_game.clicked.connect(self.start_game)
         # self.btn_connect_etabs.clicked.connect(self.connect_to_etabs_instance)
         self.btn_identify_columns.clicked.connect(self.identificar_columnas)
+        self.btn_load_data_from_file.clicked.connect(self.cargar_datos_desde_archivo)
         self.btn_exit.clicked.connect(self.exit_application)
 
         # --- Apply Stylesheet ---
         self.apply_styles()
+        
+    def cargar_datos_desde_archivo(self):
+        """
+        Abre un archivo JSON estructurado, extrae los datos de la tabla y las
+        opciones de los ComboBox, y carga todo en la pantalla ColumnDataScreen.
+        """
+        options = QFileDialog.Options()
+        fileName, _ = QFileDialog.getOpenFileName(self, "Cargar Datos de Columnas", "",
+                                                  "JSON Files (*.json);;All Files (*)", options=options)
 
+        if not fileName:
+            self.show_message("Carga de archivo cancelada.")
+            return
+
+        try:
+            with open(fileName, 'r', encoding='utf-8') as f:
+                loaded_json = json.load(f)
+
+            # Extraer los datos de la estructura del JSON
+            # Usamos .get() para evitar errores si el archivo no tiene el formato esperado
+            table_data = loaded_json.get('table_data', [])
+            combo_options = loaded_json.get('combo_options', {})
+            sections_list = combo_options.get('sections', [])
+            rebars_list = combo_options.get('rebars', [])
+
+            if not table_data:
+                self.show_message("El archivo no contiene datos de tabla o tiene un formato incorrecto.")
+                return
+
+            if self.column_data_screen:
+                self.column_data_screen.close()
+
+            # Crear la pantalla de datos pasando las listas de opciones explícitamente
+            self.column_data_screen = ColumnDataScreen(
+                main_menu_ref=self,
+                stories_window_ref=None,
+                gridlines_window_ref=None,
+                section_designer_window_ref=None,
+                confinement_screen_ref=None,
+                sap_model_object=None,
+                column_data=table_data,
+                rect_sections=sections_list, # <--- Pasar la lista de secciones
+                rebars=rebars_list          # <--- Pasar la lista de barras
+            )
+            
+            self.column_data_screen.show()
+            self.hide()
+
+        except json.JSONDecodeError:
+            QMessageBox.critical(self, "Error de Formato", "El archivo no es un JSON válido.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo cargar el archivo.\nError: {e}")
+    
     def apply_styles(self):
         """Applies QSS styles to the main menu using the new color palette."""
         pixmap = QPixmap(self.background_image_path)
@@ -354,6 +415,8 @@ class MainMenuScreen(QMainWindow):
         
         # 4. Volver a habilitar el botón cuando el hilo termine.
         self.thread.finished.connect(lambda: self.btn_identify_columns.setEnabled(True))
+        
+        self.thread.finished.connect(self.on_worker_finished)
         # self.thread.finished.connect(lambda: self.etiqueta.setText("¡Proceso completado!"))
         
         # Opcional: Actualizar el texto del diálogo con el progreso
@@ -364,34 +427,13 @@ class MainMenuScreen(QMainWindow):
         # --- Iniciar el Hilo ---
         self.thread.start()
         
-        
-        
-        # print(sap_model)
-        # self.sap_model_connected = sap_model
-        # # Set units to kg-cm
-        # etabs.establecer_units_etabs(
-        #     sap_model, UNITS_FORCE_KGF, UNITS_LENGTH_CM, UNITS_TEMP_C
-        # )
-        
-        # data_cols_labels_story, gridlines_data = etabs.get_story_lable_col_name(sap_model)
-        # # Get stories with elevation
-        # stories_with_elevations = etabs.get_stories_with_elevations(sap_model)
-        # # Get defined rebars
-        # defined_rebars = etabs.get_defined_rebars(sap_model)
-        # # Get concrete sections
-        # rect_sections = etabs.get_rect_concrete_sections(sap_model)
-        # sections = []
-        # rebars = []
-        # for item in rect_sections:
-        #     sections.append(item["Nombre"])
-        # for item in defined_rebars:
-            # rebars.append(item["Nombre"])
-
-        # print(data_cols_labels_story)
-        ####
-        
-       
-       
+    #  -- Nuevo: Slot para manejar el final del worker --
+    def on_worker_finished(self):
+        if not hasattr(self.trabajador, 'sap_model') or not self.trabajador.sap_model:
+            QMessageBox.critical(self, "Error de Conexion", 
+                                 "No se pudo conectar a una instancia de ETABS con un modelo abierto.\n",
+                                 "Por favor, asegurese de que ETABS este en ejecucion y tenga un modelo cargado.")
+            
         
     def pasar_info_para_ventanas(self, datos):
         sap_model = datos['sap_model']
@@ -409,19 +451,6 @@ class MainMenuScreen(QMainWindow):
             self.info_stories_screen = InfoStoriesScreen(stories_with_elevations)
             self.info_stories_screen.hide()
             
-        # Crear y esconder  InfoGridLinesScreen
-        ## Modificar gridlines_data
-        # gridlines_list_info = []
-        # for item in gridlines_data:
-        #     info = (str(item['GridLine']), item['pos_x'], item['pos_y'])
-        #     gridlines_list_info.append(info)
-            
-        # if not self.info_gridlines_screen:
-        #     self.info_gridlines_screen = InfoGridLinesScreen(gridlines_list_info)
-
-        # Creay y esconder SectionDesignerScreen
-        print("---Rectangular Sections-----Main menu-\n")
-        print(rectangular_sections)
         if not self.section_designer_screen:
             self.section_designer_screen = SectionDesignerScreen(sections_data=rectangular_sections)
             
