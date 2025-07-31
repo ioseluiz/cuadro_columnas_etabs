@@ -15,6 +15,8 @@ HEADER_TO_KEY_MAP = {
     'Long. R3 Bars': 'r3_bars',
     'Mat. Est.': 'Mat. Estribo',
     'Rebar. Est.': 'Est. Rebar',
+    'estribo_r2': 'estribo_r2',
+    'estribo_r3': 'estribo_r3',
     'Cover': 'cover',
     'Detalle No.': 'detail',
     'Rebar Estribo': 'Est. Rebar',  # La clave interna es la misma para ambas columnas de estribos
@@ -177,10 +179,10 @@ class ColumnDataScreen(QWidget):
         group_rectangular_layout = QVBoxLayout()
         lbl_rectangular_armado = QLabel("[Rectangular] Armado transversal")
         lbl_rectangular_resultados = QLabel("[Rectangular] Resultados")
-        self.table_rectangular_armado = QTableWidget(len(column_data), 25) # Filas, Columnas de ejemplo
+        self.table_rectangular_armado = QTableWidget(len(column_data), 27) # Filas, Columnas de ejemplo
         self.table_rectangular_armado.setHorizontalHeaderLabels(["Story","GridLine","Frame_id","Start Z", "End Z" ,"Label","Sección", "depth","width",
                                                                  "Material", "Long. R2 Bars", "Long. R3 Bars","Rebar",
-                                                                 "Mat. Est.","Rebar. Est.","Cover","Detalle No.","bxh","As",
+                                                                 "Mat. Est.","Rebar. Est.","estribo_r2","estribo_r3","Cover","Detalle No.","bxh","As",
                                                                  "fc","Rebar Estribo", "nivel start", "nivel end","start_end_level","Group"])
         
         print(column_data[0].keys())
@@ -278,45 +280,54 @@ class ColumnDataScreen(QWidget):
                 print(f"No se encuentra en las opciones del ComboBox")
             self.table_rectangular_armado.setCellWidget(col_idx, 14, combo_rebar_est)
             
-            # Col 15: Cover
+            # Col 15: estribo_r2
+            item_estribo_r2 = QTableWidgetItem(str(col.get('estribo_r2', '')))
+            self.table_rectangular_armado.setItem(col_idx, 15,item_estribo_r2)
+            
+            # col 16: estribo_r3
+            item_estribo_r3 = QTableWidgetItem(str(col.get('estribo_r3', '')))
+            self.table_rectangular_armado.setItem(col_idx, 16, item_estribo_r3)
+            
+            
+            # Col 17: Cover
             item_cover = QTableWidgetItem(str(col['cover']))
-            self.table_rectangular_armado.setItem(col_idx, 15,item_cover)
-            
-            # Col 16: Detalle #
-            item_detalle = QTableWidgetItem(col['detail'])
-            self.table_rectangular_armado.setItem(col_idx, 16,item_detalle)
-            
-            # Col 17: Detalle #
-            item_detalle = QTableWidgetItem(col['bxh'])
-            self.table_rectangular_armado.setItem(col_idx, 17,item_detalle)
+            self.table_rectangular_armado.setItem(col_idx, 17,item_cover)
             
             # Col 18: Detalle #
-            item_detalle = QTableWidgetItem(col['As'])
+            item_detalle = QTableWidgetItem(col['detail'])
             self.table_rectangular_armado.setItem(col_idx, 18,item_detalle)
             
             # Col 19: Detalle #
-            item_detalle = QTableWidgetItem(str(col['fc']))
+            item_detalle = QTableWidgetItem(col['bxh'])
             self.table_rectangular_armado.setItem(col_idx, 19,item_detalle)
             
-            # Col 20: Estribo Barra #
+            # Col 20: Detalle #
+            item_detalle = QTableWidgetItem(col['As'])
+            self.table_rectangular_armado.setItem(col_idx, 20,item_detalle)
+            
+            # Col 21: Detalle #
+            item_detalle = QTableWidgetItem(str(col['fc']))
+            self.table_rectangular_armado.setItem(col_idx, 21,item_detalle)
+            
+            # Col 22: Estribo Barra #
             item_est_rebar = QTableWidgetItem(col['Est. Rebar'])
-            self.table_rectangular_armado.setItem(col_idx, 20,item_est_rebar)
+            self.table_rectangular_armado.setItem(col_idx, 22,item_est_rebar)
             
-            # Col 21: Start Level
+            # Col 23: Start Level
             item_start_level = QTableWidgetItem(col['nivel_start'])
-            self.table_rectangular_armado.setItem(col_idx, 21, item_start_level)
+            self.table_rectangular_armado.setItem(col_idx, 23, item_start_level)
             
-            # Col 22
+            # Col 24
             item_end_level = QTableWidgetItem(col['nivel_end'])
-            self.table_rectangular_armado.setItem(col_idx, 22, item_end_level)
+            self.table_rectangular_armado.setItem(col_idx, 24, item_end_level)
             
-             # Col 23: start end level
+             # Col 25: start end level
             item_end_level = QTableWidgetItem(col['start_end_level'])
-            self.table_rectangular_armado.setItem(col_idx, 23,item_end_level)
+            self.table_rectangular_armado.setItem(col_idx, 25,item_end_level)
             
-            # Col 24: Column Group
+            # Col 26: Column Group
             item_col_group = QTableWidgetItem()
-            self.table_rectangular_armado.setItem(col_idx, 24, item_col_group)
+            self.table_rectangular_armado.setItem(col_idx, 26, item_col_group)
             
             
         self.table_rectangular_armado.resizeColumnsToContents()

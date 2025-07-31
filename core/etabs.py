@@ -398,8 +398,8 @@ def get_story_lable_col_name(sap_model):
                             )
 
                     info["Est. Rebar"] = rebar_data[9]
-                    info["num_2d_tie_bar"] = rebar_data[11]
-                    info["num_3d_tie_bar"] = rebar_data[12]
+                    info["estribo_r2"] = rebar_data[11]
+                    info["estribo_r3"] = rebar_data[12]
                     info["cover"] = rebar_data[4]
                     info["As"] = f"{info['number_bars']} {info['Rebar']}"
 

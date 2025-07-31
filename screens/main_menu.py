@@ -90,6 +90,49 @@ class Worker(QObject):
         
         self.finished.emit()
         
+class FileLoaderWorker(QObject):
+    """
+        Worker para cargar y procesar el archivo JSON en un hilo separado.
+    """
+    # Signal que se emite con los datos cargados cuando el proceso es exitoso.
+    finished = pyqtSignal(dict)
+    # Signal que se emite con un mensaje de error si algo falla.
+    error = pyqtSignal(str)
+    
+    def __init__(self, filename):
+        super().__init__()
+        self.filename = filename
+        
+    def run(self):
+        """
+            Logica de carga de archivo que se ejecuta en el hilo secundario.
+        """
+        try:
+            with open(self.filename, 'r', encoding='utf-8') as f:
+                loaded_json = json.load(f)
+                
+            table_data = loaded_json.get('table_data', [])
+            combo_options = loaded_json.get('combo_options', {})
+            sections_list = combo_options.get('sections', [])
+            rebars_list = combo_options.get('rebars', [])
+            
+            if not table_data:
+                self.error.emit("El archivo no contiene datos de la tabla o tiene un formato incorrecto.")
+                return
+            
+            # Prepara el diccionario de datos para emitir
+            data_to_emit = {
+                "table_data": table_data,
+                "sections_list": sections_list,
+                "rebars_list": rebars_list
+            }
+            self.finished.emit(data_to_emit)
+            
+        except json.JSONDecodeError:
+            self.error.emit("Error de Formato: El archivo no es un JSON valido")
+        except Exception as e:
+            self.error.emit(f"No se pudo cargar el archivo.\nError: {e}")
+        
 
 
 class MainMenuScreen(QMainWindow):
@@ -180,45 +223,63 @@ class MainMenuScreen(QMainWindow):
         if not fileName:
             self.show_message("Carga de archivo cancelada.")
             return
+        
+        # Crear y mostrar el dialogo de progreso
+        self.progress_dialog = QProgressDialog("Cargando datos desde archivo...", None, 0, 0, self)
+        self.progress_dialog.setWindowTitle("Procesando Archivo")
+        self.progress_dialog.setWindowModality(Qt.WindowModal)
+        self.progress_dialog.show()
+        
+        # Configurar el Thread y el Worker
+        self.thread = QThread()
+        self.file_worker = FileLoaderWorker(fileName)
+        self.file_worker.moveToThread(self.thread)
+        
+        # Conectar signals y slots
+        self.thread.started.connect(self.file_worker.run)
+        self.file_worker.finished.connect(self.on_file_load_finished)
+        self.file_worker.error.connect(self.on_file_load_error)
+        
+        # Conexiones para limpiar
+        self.file_worker.finished.connect(self.thread.quit)
+        self.file_worker.error.connect(self.thread.quit)
+        self.thread.finished.connect(self.progress_dialog.close)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.file_worker.finished.connect(self.file_worker.deleteLater)
+        self.file_worker.error.connect(self.file_worker.deleteLater)
+        
+        # Iniciar el proceso
+        self.thread.start()
 
-        try:
-            with open(fileName, 'r', encoding='utf-8') as f:
-                loaded_json = json.load(f)
-
-            # Extraer los datos de la estructura del JSON
-            # Usamos .get() para evitar errores si el archivo no tiene el formato esperado
-            table_data = loaded_json.get('table_data', [])
-            combo_options = loaded_json.get('combo_options', {})
-            sections_list = combo_options.get('sections', [])
-            rebars_list = combo_options.get('rebars', [])
-
-            if not table_data:
-                self.show_message("El archivo no contiene datos de tabla o tiene un formato incorrecto.")
-                return
-
-            if self.column_data_screen:
-                self.column_data_screen.close()
-
-            # Crear la pantalla de datos pasando las listas de opciones explícitamente
-            self.column_data_screen = ColumnDataScreen(
-                main_menu_ref=self,
-                stories_window_ref=None,
-                gridlines_window_ref=None,
-                section_designer_window_ref=None,
-                confinement_screen_ref=None,
-                sap_model_object=None,
-                column_data=table_data,
-                rect_sections=sections_list, # <--- Pasar la lista de secciones
-                rebars=rebars_list          # <--- Pasar la lista de barras
-            )
+    def on_file_load_finished(self, data):
+        """
+            Slot que se ejecuta cuando el FileLoaderWorker termina exitosamente.
+            Crea y muestra la pantalla de datos de columnas.
+        """
+        if self.column_data_screen:
+            self.column_data_screen.close()
             
-            self.column_data_screen.show()
-            self.hide()
-
-        except json.JSONDecodeError:
-            QMessageBox.critical(self, "Error de Formato", "El archivo no es un JSON válido.")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo cargar el archivo.\nError: {e}")
+        self.column_data_screen = ColumnDataScreen(
+            main_menu_ref=self,
+            stories_window_ref=None,
+            gridlines_window_ref=None,
+            section_designer_window_ref=None,
+            confinement_screen_ref=None,
+            sap_model_object=None,
+            column_data=data["table_data"],
+            rect_sections=data["sections_list"],
+            rebars=data["rebars_list"]
+        )
+        
+        self.column_data_screen.show()
+        self.hide()
+        
+    def on_file_load_error(self, message):
+        """
+            Slot que se ejecuta si el FileLoaderWorker encuentra un error.
+        """
+        self.progress_dialog.close() # Asegurarse de que el diálogo de progreso se cierre
+        QMessageBox.critical(self, "Error de Carga", message)
     
     def apply_styles(self):
         """Applies QSS styles to the main menu using the new color palette."""
