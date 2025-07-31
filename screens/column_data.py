@@ -434,6 +434,13 @@ class ColumnDataScreen(QWidget):
             
             table_data.append(diccionario_fila)
             
+        sections_properties = []
+        if self.section_designer_window_ref:
+            # Es una buena práctica asegurarse de que los datos actuales de la UI estén guardados
+            self.section_designer_window_ref._save_current_section_data()
+            # Se obtienen las propiedades de cada sección
+            sections_properties = self.section_designer_window_ref.sections
+            
         # 2. Crear la estructura de datos final para guardar
         data_to_save = {
             "combo_options": {
@@ -441,7 +448,10 @@ class ColumnDataScreen(QWidget):
                 "rebars": self.rebars
             },
             "gridlines_data": self._raw_gridlines_data,
-            "table_data": table_data
+            "table_data": table_data,
+            # ----------- INICIO DE LA CORRECCIÓN -----------
+            "sections_properties": sections_properties # Clave en plural
+            # ----------- FIN DE LA CORRECCIÓN -----------
         }
             
         # 3. Guardar el archivo JSON
@@ -1009,4 +1019,3 @@ class ColumnDataScreen(QWidget):
         """Maneja el cierre de la ventana."""
         self.go_back_to_main_menu() # Asegura que el menú principal se muestre
         super().closeEvent(event)
-      

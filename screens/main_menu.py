@@ -118,6 +118,8 @@ class FileLoaderWorker(QObject):
             
             gridlines_data = loaded_json.get('gridlines_data', [])
             
+            sections_properties = loaded_json.get("sections_properties", [])
+            
             if not table_data:
                 self.error.emit("El archivo no contiene datos de la tabla o tiene un formato incorrecto.")
                 return
@@ -127,7 +129,8 @@ class FileLoaderWorker(QObject):
                 "table_data": table_data,
                 "sections_list": sections_list,
                 "rebars_list": rebars_list,
-                "gridlines_data": gridlines_data
+                "gridlines_data": gridlines_data,
+                "sections_properties": sections_properties
             }
             self.finished.emit(data_to_emit)
             
@@ -267,17 +270,52 @@ class MainMenuScreen(QMainWindow):
             
         # Extraemos los datos de los gridlines del diccionario recibido del worker
         gridlines_list = data.get("gridlines_data", [])
+        table_data = data.get("table_data", [])
+        sections_list = data.get("sections_list", [])
+        rebars_list = data.get("rebars_list", [])
+        sections_properties = data.get("sections_properties", [])
+        
+        # Crear y esconder InfoStoriesScreen (asumimos que no hay datos de stories en el JSON por ahora)
+        if not self.info_stories_screen:
+            # Puedes pasar una lista vacía o manejar esto según tu lógica
+            self.info_stories_screen = InfoStoriesScreen([])
+            self.info_stories_screen.hide()
+
+        # Crear SectionDesignerScreen con los datos de las secciones del archivo
+        if not self.section_designer_screen:
+            self.section_designer_screen = SectionDesignerScreen(sections_data=sections_properties)
+        
+        # Preparar datos para ConfinementScreen a partir de las propiedades cargadas
+        section_data_for_confinement = []
+        for section in sections_properties:
+            section_data_for_confinement.append({
+                "name": section.get("section"),
+                "b": section.get("b"),
+                "h": section.get("h"),
+                "f'c": section.get("fc"),
+                "rebar_size": section.get("rebar_size"),
+                "estribo": section.get("stirrup_size"),
+                "pu": None, # O un valor por defecto
+                "rec": section.get("cover"),
+                "n_b_bc2": section.get("num_bars_2"),
+                "n_b_bc1": section.get("num_bars_3"),
+            })
+
+        # Crear y esconder ConfinementScreen
+        if not self.confinement_screen:
+            self.confinement_screen = ConfinementScreen(section_data_for_confinement, section_designer_window_ref=self.section_designer_screen)
+            self.confinement_screen.hide()
             
         self.column_data_screen = ColumnDataScreen(
             main_menu_ref=self,
-            stories_window_ref=None,
+            stories_window_ref=self.info_stories_screen,
             gridlines_window_ref=None,
-            section_designer_window_ref=None,
-            confinement_screen_ref=None,
+            section_designer_window_ref=self.section_designer_screen,
+            confinement_screen_ref=self.confinement_screen,
             sap_model_object=None,
-            column_data=data["table_data"],
-            rect_sections=data["sections_list"],
-            rebars=data["rebars_list"],
+            column_data=table_data,
+            rect_sections=sections_list,
+            rebars=rebars_list,
             gridlines_data=gridlines_list
         )
         

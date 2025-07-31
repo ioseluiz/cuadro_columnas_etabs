@@ -153,12 +153,10 @@ class ConfinementScreen(QWidget):
         """
         Llena la tabla con los resultados de los cálculos.
         """
-        # Se mueve 'fy (kg/cm2)' a las cabeceras de entrada
         self.input_headers = [
             "Pu(kg)", "H (cm)", "N_b bc2", "L (cm)", 
             "N_b bc1", "rec(cm)", "f'c (psi)", "fy (kg/cm2)"
         ]
-        # Se elimina 'fy (kg/cm2)' de las cabeceras calculadas
         self.calculated_headers = [
             "D_est (cm)", "D_long (cm)", "A_est (cm2)", "A_long (cm2)",
             "bc1 (cm)", "bc2 (cm)", "X1 (cm)", "X2 (cm)",
@@ -175,25 +173,34 @@ class ConfinementScreen(QWidget):
 
         for row, section_data in enumerate(self.initial_section_data_list):
             
+            # ----------- INICIO DE LA MODIFICACIÓN -----------
+            # Extraer valores y asignar valores por defecto si son nulos (None)
             pu_value = section_data.get("pu")
-            if pu_value is None:
-                pu_value = 3000
+            h_value = section_data.get("h")
+            n_b_bc2_value = section_data.get("n_b_bc2")
+            b_value = section_data.get("b")
+            n_b_bc1_value = section_data.get("n_b_bc1")
+            rec_value = section_data.get("rec")
+            fc_value = section_data.get("f'c")
+            fy_value = section_data.get("fy")
+            estribo_value = section_data.get("estribo")
+            rebar_size_value = section_data.get("rebar_size")
             
-            # Se añade 'fy' a los datos iniciales leídos del constructor
             initial_data = {
                 "Sección": section_data.get("name", f"Sección {row+1}"),
-                "Pu(kg)": pu_value,
-                "H (cm)": section_data.get("h", 60),
-                "N_b bc2": section_data.get("n_b_bc2", 4),
-                "L (cm)": section_data.get("b", 125),
-                "N_b bc1": section_data.get("n_b_bc1", 6),
-                "rec(cm)": section_data.get("rec", 4.0),
-                "f'c (psi)": section_data.get("f'c", 8500),
-                "fy (kg/cm2)": section_data.get("fy", 4200),
+                "Pu(kg)": pu_value if pu_value is not None else 3000,
+                "H (cm)": h_value if h_value is not None else 60,
+                "N_b bc2": n_b_bc2_value if n_b_bc2_value is not None else 4,
+                "L (cm)": b_value if b_value is not None else 125,
+                "N_b bc1": n_b_bc1_value if n_b_bc1_value is not None else 6,
+                "rec(cm)": rec_value if rec_value is not None else 4.0,
+                "f'c (psi)": fc_value if fc_value is not None else 8500,
+                "fy (kg/cm2)": fy_value if fy_value is not None else 4200,
             }
 
-            rebar_size_est = section_data.get("estribo", '#4')
-            rebar_size_long = section_data.get("rebar_size", '#8')
+            rebar_size_est = estribo_value if estribo_value is not None else '#4'
+            rebar_size_long = rebar_size_value if rebar_size_value is not None else '#8'
+            # ----------- FIN DE LA MODIFICACIÓN -----------
 
             calculated_data = self.calculate_confinement(initial_data, rebar_size_est, rebar_size_long)
             full_data_row = {**initial_data, **calculated_data}
@@ -203,7 +210,6 @@ class ConfinementScreen(QWidget):
                 if col_index is not None:
                     formatted_value = f"{value:.4f}" if isinstance(value, float) else str(value)
                     item = QTableWidgetItem(formatted_value)
-                    # La lógica para hacer las celdas editables/no editables funciona sin cambios
                     if header not in self.input_headers and header != "Sección":
                         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                     self.table.setItem(row, col_index, item)

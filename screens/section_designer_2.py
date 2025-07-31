@@ -283,7 +283,9 @@ class SectionDesignerScreen(QMainWindow):
         self.canvas.statusMessage.connect(self.statusBar().showMessage)
         self.canvas.canvasClicked.connect(self.handle_canvas_click)
         self.units_input.setCurrentText("cm")
-        self._load_section_data(self.current_section_index)
+        
+        if self.sections:
+            self._load_section_data(0)
 
     def setup_controls_panel(self):
         dock = QDockWidget("Controles", self); dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
