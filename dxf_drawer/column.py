@@ -516,7 +516,7 @@ class RectangularColumn:
                 angle_radians = math.radians(angle_degrees)
                 # Calculate sin 45
                 sin_45 = math.sin(angle_radians)
-                cos_45 = math.cos(angle_degrees)
+                cos_45 = math.cos(angle_radians)
                 x_coord = rebar.coord_x - cos_45*rebar.diameter/2
                 y_coord = rebar.coord_y + sin_45*rebar.diameter/2
                 _6db = 3*rebar.diameter
