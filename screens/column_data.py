@@ -998,7 +998,7 @@ class ColumnDataScreen(QWidget):
         
         
         selected_row = selected_items.row()
-        detalle_item = self.table_rectangular_armado.item(selected_row, 16)
+        detalle_item = self.table_rectangular_armado.item(selected_row, 18)
         
         if not detalle_item:
             return
