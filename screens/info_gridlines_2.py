@@ -512,7 +512,7 @@ class GroupManagerDialog(QDialog):
         table = self.main_column_table
         # Basado en column_data.py, "GridLine" es la columna 1 y "Group" es la 24 (índices 1 y 24)
         GRIDLINE_COL_IDX = 1
-        GROUP_COL_IDX = 24
+        GROUP_COL_IDX = 26
 
         for row in range(table.rowCount()):
             gridline_item = table.item(row, GRIDLINE_COL_IDX)
@@ -623,7 +623,7 @@ class InfoGridLinesScreen(QMainWindow):
 
         for item in gridlines_data:
             try:
-                # ### INICIO DE LA CORRECCIÓN ###
+                
                 # Se verifica si el 'item' es un diccionario o una lista para manejar ambos formatos de datos.
                 if isinstance(item, dict):
                     # Procesa el formato de diccionario: {'GridLine': 'A', 'pos_x': 0, 'pos_y': 0}
@@ -639,7 +639,7 @@ class InfoGridLinesScreen(QMainWindow):
                     # Si el formato es desconocido, se salta el item.
                     print(f"Warning: Saltando item con formato desconocido: {item}")
                     continue
-                # ### FIN DE LA CORRECCIÓN ###
+                
 
                 # Llamar a la función existente que crea el objeto y lo añade a la lista self.columns
                 self._create_column(cid, x, y, refresh_ui=False)

@@ -339,7 +339,7 @@ class ColumnDataScreen(QWidget):
         self.table_rectangular_armado.resizeColumnsToContents()
         # self.table_rectangular_armado.resizeRowToContents()
         
-        group_column_index = 24
+        group_column_index = 26
         self.table_rectangular_armado.setColumnWidth(group_column_index, 250) # Establece un ancho de 150 píxeles (ajusta este valor si es necesario)
         
         
@@ -715,7 +715,7 @@ class ColumnDataScreen(QWidget):
 
         # Índices de las columnas relevantes (basado en el código existente)
         GRIDLINE_COL_IDX = 1
-        GROUP_COL_IDX = 24
+        GROUP_COL_IDX = 26
 
         # 1. Crear un mapa inverso para una búsqueda eficiente: {grid_id: group_name}
         grid_to_group_map = {}
