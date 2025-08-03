@@ -442,6 +442,10 @@ class ColumnDataScreen(QWidget):
             sections_properties = self.section_designer_window_ref.sections
             
         # 2. Crear la estructura de datos final para guardar
+        self._ensure_gridlines_window_exists()
+        # Obtener el diccionario de grupos desde la instancia de la ventana de gridlines
+        groups_data = self.gridlines_window_ref.groups if self.gridlines_window_ref else {}
+        
         data_to_save = {
             "combo_options": {
                 "sections": self.rect_sections,
@@ -449,9 +453,8 @@ class ColumnDataScreen(QWidget):
             },
             "gridlines_data": self._raw_gridlines_data,
             "table_data": table_data,
-            # ----------- INICIO DE LA CORRECCIÓN -----------
-            "sections_properties": sections_properties # Clave en plural
-            # ----------- FIN DE LA CORRECCIÓN -----------
+            "sections_properties": sections_properties,
+            "groups": groups_data
         }
             
         # 3. Guardar el archivo JSON
