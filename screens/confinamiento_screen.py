@@ -155,7 +155,7 @@ class ConfinementScreen(QWidget):
         """
         self.input_headers = [
             "Pu(kg)", "H (cm)", "N_b bc2", "L (cm)", 
-            "N_b bc1", "rec(cm)", "f'c (psi)", "fy (kg/cm2)"
+            "N_b bc1", "num_est_2", "num_est_3","rec(cm)", "f'c (psi)", "fy (kg/cm2)"
         ]
         self.calculated_headers = [
             "D_est (cm)", "D_long (cm)", "A_est (cm2)", "A_long (cm2)",
@@ -180,6 +180,10 @@ class ConfinementScreen(QWidget):
             n_b_bc2_value = section_data.get("n_b_bc2")
             b_value = section_data.get("b")
             n_b_bc1_value = section_data.get("n_b_bc1")
+            # Cantidad de patas de estribos agregadas
+            num_est_2 = section_data.get("num_est_2")
+            num_est_3 = section_data.get("num_est_3")
+            ####
             rec_value = section_data.get("rec")
             fc_value = section_data.get("f'c")
             fy_value = section_data.get("fy")
@@ -193,6 +197,8 @@ class ConfinementScreen(QWidget):
                 "N_b bc2": n_b_bc2_value if n_b_bc2_value is not None else 4,
                 "L (cm)": b_value if b_value is not None else 125,
                 "N_b bc1": n_b_bc1_value if n_b_bc1_value is not None else 6,
+                "num_est_2": num_est_2 if num_est_2 is not None else 2,
+                "num_est_3": num_est_3 if num_est_3 is not None else 2,
                 "rec(cm)": rec_value if rec_value is not None else 4.0,
                 "f'c (psi)": fc_value if fc_value is not None else 8500,
                 "fy (kg/cm2)": fy_value if fy_value is not None else 4200,

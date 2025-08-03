@@ -297,8 +297,10 @@ class MainMenuScreen(QMainWindow):
                 "estribo": section.get("stirrup_size"),
                 "pu": None, # O un valor por defecto
                 "rec": section.get("cover"),
-                "n_b_bc2": section.get("num_bars_2"),
-                "n_b_bc1": section.get("num_bars_3"),
+                "n_b_bc2": section.get("num_bars_2"), # Barras  de long. en dir 2
+                "n_b_bc1": section.get("num_bars_3"), # Barras de long. en dir 3
+                "num_est_2": section.get("num_crossties_2"),
+                "num_est_3": section.get("num_crossties_3"),
             })
 
         # Crear y esconder ConfinementScreen

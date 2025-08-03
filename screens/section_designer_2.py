@@ -267,9 +267,19 @@ class OpenGLCanvas(QGLWidget):
 class SectionDesignerScreen(QMainWindow):
     def __init__(self, sections_data=None):
         super(SectionDesignerScreen, self).__init__()
+        
+        # --- Bloque de Mapeo de Claves ---
+        if sections_data and isinstance(sections_data, list):
+            for section_dict in sections_data:
+                if 'num_crossties_2' in section_dict:
+                    section_dict['num_est_2'] = section_dict.get('num_crossties_2')
+                if 'num_crossties_3' in section_dict:
+                    section_dict['num_est_3'] = section_dict.get('num_crossties_3')
+        # --- FIN DEL BLOQUE DE MAPEO ---
+        
         self.sections = sections_data if sections_data and isinstance(sections_data, list) else [{
             "section": "Columna C-1 (Default)", "b": 500.0, "h": 750.0, "cover": 40.0,
-            "rebar_size": "#8", "num_bars_2": 3, "num_bars_3": 4, "stirrup_size": "#4",
+            "rebar_size": "#8", "num_bars_2": 3, "num_bars_3": 4, "num_est_2":2,"num_est_3":2,"stirrup_size": "#4",
             "crossties_2_active": [True], "crossties_3_active": [True, True, False]
         }]
         self.drawn_crossties = []
@@ -318,8 +328,19 @@ class SectionDesignerScreen(QMainWindow):
         rebar_group.setLayout(rebar_layout); main_layout.addWidget(rebar_group)
         trans_group = QGroupBox("Refuerzo Transversal"); trans_layout = QVBoxLayout()
         self.stirrup_size_input = QComboBox(); self.stirrup_size_input.addItems(['#3', '#4', '#5']); self.stirrup_size_input.setCurrentText('#4')
-        self.num_crossties_2_input = QSpinBox() 
-        self.num_crossties_3_input = QSpinBox()
+        
+        
+        self.num_crossties_2_input = QLineEdit() 
+        self.num_crossties_2_input.setReadOnly(True)
+        self.num_crossties_2_input.setAlignment(Qt.AlignCenter)
+        self.num_crossties_2_input.setStyleSheet("background-color: #f0f0f0;")
+
+        self.num_crossties_3_input = QLineEdit()
+        self.num_crossties_3_input.setReadOnly(True)
+        self.num_crossties_3_input.setAlignment(Qt.AlignCenter)
+        self.num_crossties_3_input.setStyleSheet("background-color: #f0f0f0;")
+        
+        
         trans_layout.addWidget(QLabel("Tamaño de Estribo:")); trans_layout.addWidget(self.stirrup_size_input)
         trans_layout.addWidget(QLabel("Ganchos Suplementarios Verticales:")); trans_layout.addWidget(self.num_crossties_2_input)
         trans_layout.addWidget(QLabel("Ganchos Suplementarios Horizontales:")); trans_layout.addWidget(self.num_crossties_3_input)
@@ -358,49 +379,57 @@ class SectionDesignerScreen(QMainWindow):
     def handle_canvas_click(self, world_pos):
         world_x, world_y = world_pos
         pick_radius = 1.0 / self.canvas.zoom_level
+        data = self.sections[self.current_section_index]
         
         # Modo Eliminar
         if self.btn_remove_crosstie.isChecked():
             for ct in self.drawn_crossties:
                 if ct.is_clicked(world_x, world_y, pick_radius):
-                    data = self.sections[self.current_section_index]
                     if ct.direction == 'vertical':
                         data['crossties_2_active'][ct.index] = False
+                        # Sincronizar datos y UI
+                        new_count = sum(data['crossties_2_active'])
+                        data['num_est_2'] = new_count
+                        self.num_crossties_2_input.setText(str(new_count))
                     else:
                         data['crossties_3_active'][ct.index] = False
-                    self.statusBar().showMessage(f"Crosstie específico eliminado. Actualizando...")
+                        # Sincronizar datos y UI
+                        new_count = sum(data['crossties_3_active'])
+                        data['num_est_3'] = new_count
+                        self.num_crossties_3_input.setText(str(new_count))
+                        
+                    self.statusBar().showMessage(f"Gancho suplementario eliminado. Actualizando...")
                     self.generate_drawing(reset_view=False)
                     return
         
         # Modo Agregar
         elif self.btn_add_crosstie.isChecked():
-            closest_ct = None
-            min_dist_sq = float('inf')
+            closest_ct = None; min_dist_sq = float('inf')
             
             for pot_ct in self.potential_crossties:
                 mid_x, mid_y = (pot_ct.x1 + pot_ct.x2) / 2, (pot_ct.y1 + pot_ct.y2) / 2
                 dist_sq = (world_x - mid_x)**2 + (world_y - mid_y)**2
-                
-                if dist_sq < min_dist_sq:
-                    min_dist_sq = dist_sq
-                    closest_ct = pot_ct
+                if dist_sq < min_dist_sq: min_dist_sq = dist_sq; closest_ct = pot_ct
             
             if closest_ct:
-                data = self.sections[self.current_section_index]
                 if closest_ct.direction == 'vertical':
                     if not data['crossties_2_active'][closest_ct.index]:
                         data['crossties_2_active'][closest_ct.index] = True
-                        self.statusBar().showMessage("Crosstie específico agregado. Actualizando...")
+                        new_count = sum(data['crossties_2_active'])
+                        data['num_est_2'] = new_count
+                        # --- CAMBIO: Usar setText en lugar de setValue ---
+                        self.num_crossties_2_input.setText(str(new_count))
+                        self.statusBar().showMessage("Gancho suplementario agregado. Actualizando...")
                         self.generate_drawing(reset_view=False)
-                    else:
-                        self.statusBar().showMessage("Ya existe un crosstie en esta posición.")
                 else: # Horizontal
                     if not data['crossties_3_active'][closest_ct.index]:
                         data['crossties_3_active'][closest_ct.index] = True
-                        self.statusBar().showMessage("Crosstie específico agregado. Actualizando...")
+                        new_count = sum(data['crossties_3_active'])
+                        data['num_est_3'] = new_count
+                        # --- CAMBIO: Usar setText en lugar de setValue ---
+                        self.num_crossties_3_input.setText(str(new_count))
+                        self.statusBar().showMessage("Gancho suplementario agregado. Actualizando...")
                         self.generate_drawing(reset_view=False)
-                    else:
-                        self.statusBar().showMessage("Ya existe un crosstie en esta posición.")
 
     def crosstie_button_clicked(self):
         sender = self.sender()
@@ -439,6 +468,23 @@ class SectionDesignerScreen(QMainWindow):
         self.num_bars_3_input.setValue(data.get('num_bars_3', 4))
         self.stirrup_size_input.setCurrentText(data.get('stirrup_size', '#4'))
         self.section_selector.setCurrentIndex(index)
+        # Usar num_est para generar la lista de booleanos y actualizar los SpinBox
+        # direccion 2 (vertical)
+        num_bars_2 = data.get('num_bars_2', 2)
+        max_ct_2 = max(0, num_bars_2 - 2)
+        target_ct_2 = data.get('num_est_2', 0)
+        num_to_activate_2 = min(target_ct_2, max_ct_2)
+        data['crossties_2_active'] = [True] * num_to_activate_2 + [False] * (max_ct_2 - num_to_activate_2)
+        self.num_crossties_2_input.setText(str(num_to_activate_2))
+        
+        # direccion 3 (horizontal)
+        num_bars_3 = data.get('num_bars_3', 2)
+        max_ct_3 = max(0, num_bars_3 - 2)
+        target_ct_3 = data.get('num_est_3', 0)
+        num_to_activate_3 = min(target_ct_3, max_ct_3)
+        data['crossties_3_active'] = [True] * num_to_activate_3 + [False] * (max_ct_3 - num_to_activate_3)
+        self.num_crossties_3_input.setText(str(num_to_activate_3))
+        
         for widget in self.findChildren(QWidget): widget.blockSignals(False)
         self.generate_drawing(reset_view=True)
 
@@ -450,8 +496,9 @@ class SectionDesignerScreen(QMainWindow):
             data['h'] = float(self.h_input.text())
             data['cover'] = float(self.cover_input.text())
             data['rebar_size'] = self.rebar_size_input.currentText()
-            data['num_bars_2'] = self.num_bars_3_input.value()
-            data['num_bars_3'] = self.num_bars_2_input.value()
+            # Correccion sugerida
+            data['num_bars_2'] = self.num_bars_3_input.value() # antes 3
+            data['num_bars_3'] = self.num_bars_2_input.value() # antes 2
             data['stirrup_size'] = self.stirrup_size_input.currentText()
         except ValueError as e: self.statusBar().showMessage(f"Error al guardar datos: {e}. Entrada inválida.")
 
@@ -492,16 +539,31 @@ class SectionDesignerScreen(QMainWindow):
             rebar_size, stirrup_size = data['rebar_size'], data['stirrup_size']
             num_bars_2, num_bars_3 = data['num_bars_2'], data['num_bars_3']
             
+            # BLOQUE DE SINCRONIZACION
             max_ct_2 = max(0, num_bars_2 - 2)
-            if 'crossties_2_active' not in data or len(data['crossties_2_active']) != max_ct_2:
-                data['crossties_2_active'] = [False] * max_ct_2
-            max_ct_3 = max(0, num_bars_3 - 2)
-            if 'crossties_3_active' not in data or len(data['crossties_3_active']) != max_ct_3:
-                data['crossties_3_active'] = [False] * max_ct_3
+            current_list_2 = data.get('crossties_2_active', [])
+            if len(current_list_2) != max_ct_2:
+                current_list_2 = current_list_2[:max_ct_2]
+                current_list_2 += [False] * (max_ct_2 - len(current_list_2))
+                data['crossties_2_active'] = current_list_2
+                
+                new_count_2 = sum(current_list_2)
+                data['num_est_2'] = new_count_2
+                self.num_crossties_2_input.setText(str(new_count_2))
             
-            self.num_crossties_2_input.setValue(sum(data['crossties_2_active']))
-            self.num_crossties_3_input.setValue(sum(data['crossties_3_active']))
-
+            max_ct_3 = max(0, num_bars_3 - 2)
+            current_list_3 = data.get('crossties_3_active', [])
+            if len(current_list_3) != max_ct_3:
+                current_list_3 = current_list_3[:max_ct_3]
+                current_list_3 += [False] * (max_ct_3 - len(current_list_3))
+                data['crossties_3_active'] = current_list_3
+                
+                new_count_3 = sum(current_list_3)
+                data['num_est_3'] = new_count_3
+                # --- CAMBIO: Usar setText en lugar de setValue ---
+                self.num_crossties_3_input.setText(str(new_count_3))
+            # FIN BLOQUE SINCRONIZACION
+           
             objetos = [Columna(0, 0, b, h), EstriboPrincipal(b, h, cover, stirrup_size, rebar_size)]
             self.drawn_crossties.clear(); self.potential_crossties.clear()
 
