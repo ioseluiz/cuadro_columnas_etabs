@@ -1012,7 +1012,7 @@ class ColumnDataScreen(QWidget):
         if ok and new_detalle_name and new_detalle_name != old_detalle_name:
             # Bucle para renombrar en todas las filas que hacen match
             for row in range(self.table_rectangular_armado.rowCount()):
-                item = self.table_rectangular_armado.item(row,16)
+                item = self.table_rectangular_armado.item(row,18)
                 if item and item.text() == old_detalle_name:
                     item.setText(new_detalle_name)
                     

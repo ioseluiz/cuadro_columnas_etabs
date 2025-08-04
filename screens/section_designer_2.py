@@ -277,10 +277,18 @@ class SectionDesignerScreen(QMainWindow):
                     section_dict['num_est_3'] = section_dict.get('num_crossties_3')
         # --- FIN DEL BLOQUE DE MAPEO ---
         
+        # Deteccion de modificaciones en el estado de la seccion.
+        if sections_data and isinstance(sections_data, list):
+            for section in sections_data:
+                if 'modification_state' not in section:
+                    # Si el estado no viene, se asume que es original de ETABS
+                    section['modificacion_state'] = 'etabs_original'
+        
         self.sections = sections_data if sections_data and isinstance(sections_data, list) else [{
             "section": "Columna C-1 (Default)", "b": 500.0, "h": 750.0, "cover": 40.0,
             "rebar_size": "#8", "num_bars_2": 3, "num_bars_3": 4, "num_est_2":2,"num_est_3":2,"stirrup_size": "#4",
-            "crossties_2_active": [True], "crossties_3_active": [True, True, False]
+            "crossties_2_active": [True], "crossties_3_active": [True, True, False],
+            "modification_state": "user_modified"
         }]
         self.drawn_crossties = []
         self.potential_crossties = []
@@ -492,6 +500,8 @@ class SectionDesignerScreen(QMainWindow):
         if self.current_section_index < 0 or self.current_section_index >= len(self.sections): return
         data = self.sections[self.current_section_index]
         try:
+            old_data = data.copy()
+            
             data['b'] = float(self.b_input.text())
             data['h'] = float(self.h_input.text())
             data['cover'] = float(self.cover_input.text())
@@ -500,6 +510,17 @@ class SectionDesignerScreen(QMainWindow):
             data['num_bars_2'] = self.num_bars_3_input.value() # antes 3
             data['num_bars_3'] = self.num_bars_2_input.value() # antes 2
             data['stirrup_size'] = self.stirrup_size_input.currentText()
+            
+            keys_to_compare = ['b', 'h', 'cover', 'rebar_size', 'num_bars_2', 'num_bars_3', 'stirrup_size']
+            is_modified = False
+            for key in keys_to_compare:
+                if old_data.get(key) != data.get(key):
+                    is_modified = True
+                    break
+                
+            if is_modified:
+                data['modification_state'] = 'user_modified'
+        
         except ValueError as e: self.statusBar().showMessage(f"Error al guardar datos: {e}. Entrada inválida.")
 
     def _create_new_section(self):
