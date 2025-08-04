@@ -443,6 +443,10 @@ class ColumnDataScreen(QWidget):
             
         # 2. Crear la estructura de datos final para guardar
         self._ensure_gridlines_window_exists()
+        
+        # Obtener los datos actualizados de los gridlines desde la ventana de edicion
+        updated_gridlines_data = self.gridlines_window_ref.get_current_gridlines_data()
+        
         # Obtener el diccionario de grupos desde la instancia de la ventana de gridlines
         groups_data = self.gridlines_window_ref.groups if self.gridlines_window_ref else {}
         
@@ -451,7 +455,7 @@ class ColumnDataScreen(QWidget):
                 "sections": self.rect_sections,
                 "rebars": self.rebars
             },
-            "gridlines_data": self._raw_gridlines_data,
+            "gridlines_data": updated_gridlines_data,
             "table_data": table_data,
             "sections_properties": sections_properties,
             "groups": groups_data

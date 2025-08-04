@@ -890,3 +890,19 @@ class InfoGridLinesScreen(QMainWindow):
         """Se llama cuando la ventana está a punto de cerrarse."""
         # Se eliminó la llamada a _save_data_to_file()
         super().closeEvent(event)
+        
+    def get_current_gridlines_data(self):
+        """
+        Recorre la estructura de datos interna 'self.columns' y devuelve una lista
+        de diccionarios con el estado actual de los gridlines, incluyendo los nombres
+        actualizados.
+        """
+        current_data = []
+        # Itera sobre los objetos Column en el diccionario de columnas
+        for col_id, col_obj in self.columns.items():
+            current_data.append({
+                'GridLine': col_obj.id,  # Usa el ID actual del objeto
+                'pos_x': col_obj.x,
+                'pos_y': col_obj.y
+            })
+        return current_data
