@@ -598,7 +598,32 @@ class SectionDesignerScreen(QMainWindow):
         self.hide()
         event.ignore()
 
+    # ### INICIO DE LA MODIFICACIÓN ###
+    def _get_distributed_indices(self, num_to_place, total_slots):
+        """
+        Calcula los índices para distribuir num_to_place elementos en total_slots.
+        """
+        if num_to_place <= 0 or total_slots <= 0:
+            return []
+        if num_to_place >= total_slots:
+            return list(range(total_slots))
+        
+        # Si solo hay un gancho, se coloca en el centro
+        if num_to_place == 1:
+            return [total_slots // 2]
+
+        # Calcula el espaciado entre ganchos. Se usa float para precisión.
+        step = float(total_slots - 1) / (num_to_place - 1)
+        
+        # Genera los índices redondeando al entero más cercano
+        indices = [int(round(i * step)) for i in range(num_to_place)]
+        return indices
+
     def generate_drawing(self, reset_view=True):
+        """
+        Lee los datos de la UI, crea los objetos y los envía al canvas para ser dibujados.
+        MODIFICADO: Usa _get_distributed_indices para espaciar los ganchos.
+        """
         self._save_current_section_data()
         try:
             data = self.sections[self.current_section_index]
@@ -606,47 +631,65 @@ class SectionDesignerScreen(QMainWindow):
             b, h, cover = data['b'] * factor, data['h'] * factor, data['cover'] * factor
             rebar_size, stirrup_size = data['rebar_size'], data['stirrup_size']
             
-            # EL BLOQUE DE SINCRONIZACIÓN HA SIDO ELIMINADO DE AQUÍ
-            
-            objetos = [Columna(0, 0, b, h), EstriboPrincipal(b, h, cover, stirrup_size, rebar_size)]
-            self.drawn_crossties.clear(); self.potential_crossties.clear()
-
-            # Intercambiamos los valores para que el dibujo salga bien.
             num_bars_2_for_drawing = data['num_bars_3']
             num_bars_3_for_drawing = data['num_bars_2']
 
-            # ... (el resto de la función de dibujado permanece exactamente igual) ...
+            # --- Lógica de cálculo de refuerzo (en pulgadas) ---
             stirrup_bar_d, rebar_d = BAR_DIAMETERS_IN[stirrup_size], BAR_DIAMETERS_IN[rebar_size]
             x_start = cover + stirrup_bar_d + rebar_d / 2; x_end = b - cover - stirrup_bar_d - rebar_d / 2
             y_start = cover + stirrup_bar_d + rebar_d / 2; y_end = h - cover - stirrup_bar_d - rebar_d / 2
             spacing_x = (x_end - x_start) / (num_bars_2_for_drawing - 1) if num_bars_2_for_drawing > 1 else 0
             spacing_y = (y_end - y_start) / (num_bars_3_for_drawing - 1) if num_bars_3_for_drawing > 1 else 0
-            
+
+            # --- Preparación de objetos a dibujar ---
+            objetos = [Columna(0, 0, b, h), EstriboPrincipal(b, h, cover, stirrup_size, rebar_size)]
+            self.potential_crossties.clear()
+            self.drawn_crossties.clear()
+
+            # --- Dibujo de Barras Longitudinales ---
             positions = set()
             for i in range(num_bars_2_for_drawing): positions.add((x_start + i * spacing_x, y_start)); positions.add((x_start + i * spacing_x, y_end))
             for i in range(1, num_bars_3_for_drawing - 1): positions.add((x_start, y_start + i * spacing_y)); positions.add((x_end, y_start + i * spacing_y))
             for pos in sorted(list(positions)): objetos.append(BarraLongitudinal(pos, rebar_size))
-            
+
+            # --- Preparar Ganchos Potenciales (para clics) ---
             interior_bars_x = [x_start + i * spacing_x for i in range(1, num_bars_2_for_drawing - 1)]
             for i in range(len(interior_bars_x)):
                 ct = CrossTie((interior_bars_x[i], y_start), (interior_bars_x[i], y_end), stirrup_size, rebar_size, 'vertical', i)
                 self.potential_crossties.append(ct)
-                if i < len(data.get('crossties_2_active', [])) and data['crossties_2_active'][i]:
-                    objetos.append(ct)
-                    self.drawn_crossties.append(ct)
 
             interior_bars_y = [y_start + i * spacing_y for i in range(1, num_bars_3_for_drawing - 1)]
             for i in range(len(interior_bars_y)):
                 ct = CrossTie((x_start, interior_bars_y[i]), (x_end, interior_bars_y[i]), stirrup_size, rebar_size, 'horizontal', i)
                 self.potential_crossties.append(ct)
-                if i < len(data.get('crossties_3_active', [])) and data['crossties_3_active'][i]:
-                    objetos.append(ct)
-                    self.drawn_crossties.append(ct)
             
+            # --- LÓGICA DE DIBUJO DE GANCHOS ESPACIADOS ---
+            
+            # Ganchos Verticales
+            num_to_draw_2 = sum(data.get('crossties_2_active', []))
+            indices_to_draw_2 = self._get_distributed_indices(num_to_draw_2, len(interior_bars_x))
+            for i in indices_to_draw_2:
+                start_pt = (interior_bars_x[i], y_start)
+                end_pt = (interior_bars_x[i], y_end)
+                ct = CrossTie(start_pt, end_pt, stirrup_size, rebar_size, 'vertical', i)
+                objetos.append(ct)
+                self.drawn_crossties.append(ct)
+                
+            # Ganchos Horizontales
+            num_to_draw_3 = sum(data.get('crossties_3_active', []))
+            indices_to_draw_3 = self._get_distributed_indices(num_to_draw_3, len(interior_bars_y))
+            for i in indices_to_draw_3:
+                start_pt = (x_start, interior_bars_y[i])
+                end_pt = (x_end, interior_bars_y[i])
+                ct = CrossTie(start_pt, end_pt, stirrup_size, rebar_size, 'horizontal', i)
+                objetos.append(ct)
+                self.drawn_crossties.append(ct)
+
             self.canvas.set_draw_objects(objetos, b, h, reset_view=reset_view)
             
         except (ValueError, KeyError) as e: self.statusBar().showMessage(f"Error en datos: {e}")
         except Exception as e: self.statusBar().showMessage(f"Error inesperado: {e}") 
+    # ### FIN DE LA MODIFICACIÓN ###
         
     def _update_crossties_for_direction(self, direction):
         """
@@ -680,5 +723,3 @@ class SectionDesignerScreen(QMainWindow):
         data[num_est_key] = new_count
         crosstie_input_widget.setText(str(new_count))
         data['modification_state'] = 'user_modified'
-        
-    
