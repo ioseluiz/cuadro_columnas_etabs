@@ -268,13 +268,18 @@ class SectionDesignerScreen(QMainWindow):
     def __init__(self, sections_data=None):
         super(SectionDesignerScreen, self).__init__()
         
-        # --- Bloque de Mapeo de Claves ---
+         # --- Bloque de Mapeo de Claves (MODIFICADO) ---
         if sections_data and isinstance(sections_data, list):
             for section_dict in sections_data:
+                # Si la clave 'num_crossties_2' existe, se mapea a 'num_est_2' y se le resta 2.
                 if 'num_crossties_2' in section_dict:
-                    section_dict['num_est_2'] = section_dict.get('num_crossties_2')
+                    num_patas = section_dict.get('num_crossties_2', 2)
+                    section_dict['num_est_2'] = max(0, num_patas - 2) # Se asegura que no sea negativo
+
+                # Si la clave 'num_crossties_3' existe, se mapea a 'num_est_3' y se le resta 2.
                 if 'num_crossties_3' in section_dict:
-                    section_dict['num_est_3'] = section_dict.get('num_crossties_3')
+                    num_patas = section_dict.get('num_crossties_3', 2)
+                    section_dict['num_est_3'] = max(0, num_patas - 2) # Se asegura que no sea negativo
         # --- FIN DEL BLOQUE DE MAPEO ---
         
         # Deteccion de modificaciones en el estado de la seccion.
@@ -330,6 +335,11 @@ class SectionDesignerScreen(QMainWindow):
         self.rebar_size_input = QComboBox(); self.rebar_size_input.addItems(BAR_DIAMETERS_IN.keys()); self.rebar_size_input.setCurrentText("#8")
         self.num_bars_2_input = QSpinBox(); self.num_bars_2_input.setMinimum(2); self.num_bars_2_input.setValue(3)
         self.num_bars_3_input = QSpinBox(); self.num_bars_3_input.setMinimum(2); self.num_bars_3_input.setValue(4)
+        
+        # --- AÑADE ESTAS LÍNEAS ---
+        self.num_bars_2_input.valueChanged.connect(lambda: self._update_crossties_for_direction(2))
+        self.num_bars_3_input.valueChanged.connect(lambda: self._update_crossties_for_direction(3))
+
         rebar_layout.addWidget(QLabel("Tamaño de Barra:")); rebar_layout.addWidget(self.rebar_size_input)
         rebar_layout.addWidget(QLabel("Barras en dirección 2:")); rebar_layout.addWidget(self.num_bars_2_input)
         rebar_layout.addWidget(QLabel("Barras en dirección 3:")); rebar_layout.addWidget(self.num_bars_3_input)
@@ -466,7 +476,11 @@ class SectionDesignerScreen(QMainWindow):
     def _load_section_data(self, index):
         self.current_section_index = index
         data = self.sections[index]
+        
+        # Bloquea las señales para evitar que los cambios disparen eventos no deseados
         for widget in self.findChildren(QWidget): widget.blockSignals(True)
+        
+        # Carga la información general de la sección en los widgets
         self.setWindowTitle(f"Visor de Secciones - {data['section']}")
         self.b_input.setText(str(data.get('b', '50.0')))
         self.h_input.setText(str(data.get('h', '75.0')))
@@ -476,26 +490,33 @@ class SectionDesignerScreen(QMainWindow):
         self.num_bars_3_input.setValue(data.get('num_bars_3', 4))
         self.stirrup_size_input.setCurrentText(data.get('stirrup_size', '#4'))
         self.section_selector.setCurrentIndex(index)
-        # Usar num_est para generar la lista de booleanos y actualizar los SpinBox
-        # direccion 2 (vertical)
+        
+        # Simplemente lee el número de ganchos guardado y actualiza el campo de texto
+        self.num_crossties_2_input.setText(str(data.get('num_est_2', 0)))
+        self.num_crossties_3_input.setText(str(data.get('num_est_3', 0)))
+
+        # --- LÓGICA DE INICIALIZACIÓN DE LISTAS (RE-AGREGADA Y CORREGIDA) ---
+        # Este bloque es crucial para asegurar que la lista 'crossties_..._active' siempre exista.
+        
+        # Dirección 2 (Vertical)
         num_bars_2 = data.get('num_bars_2', 2)
         max_ct_2 = max(0, num_bars_2 - 2)
         target_ct_2 = data.get('num_est_2', 0)
-        num_to_activate_2 = min(target_ct_2, max_ct_2)
-        data['crossties_2_active'] = [True] * num_to_activate_2 + [False] * (max_ct_2 - num_to_activate_2)
-        self.num_crossties_2_input.setText(str(num_to_activate_2))
-        
-        # direccion 3 (horizontal)
+        # Se asegura que la lista de booleanos se cree correctamente
+        data['crossties_2_active'] = [True] * target_ct_2 + [False] * (max_ct_2 - target_ct_2)
+
+        # Dirección 3 (Horizontal)
         num_bars_3 = data.get('num_bars_3', 2)
         max_ct_3 = max(0, num_bars_3 - 2)
         target_ct_3 = data.get('num_est_3', 0)
-        num_to_activate_3 = min(target_ct_3, max_ct_3)
-        data['crossties_3_active'] = [True] * num_to_activate_3 + [False] * (max_ct_3 - num_to_activate_3)
-        self.num_crossties_3_input.setText(str(num_to_activate_3))
-        
+        # Se asegura que la lista de booleanos se cree correctamente
+        data['crossties_3_active'] = [True] * target_ct_3 + [False] * (max_ct_3 - target_ct_3)
+        # --- FIN DE LA LÓGICA DE INICIALIZACIÓN ---
+
+        # Reactiva las señales y llama a dibujar
         for widget in self.findChildren(QWidget): widget.blockSignals(False)
         self.generate_drawing(reset_view=True)
-
+    
     def _save_current_section_data(self):
         if self.current_section_index < 0 or self.current_section_index >= len(self.sections): return
         data = self.sections[self.current_section_index]
@@ -506,9 +527,11 @@ class SectionDesignerScreen(QMainWindow):
             data['h'] = float(self.h_input.text())
             data['cover'] = float(self.cover_input.text())
             data['rebar_size'] = self.rebar_size_input.currentText()
-            # Correccion sugerida
-            data['num_bars_2'] = self.num_bars_3_input.value() # antes 3
-            data['num_bars_3'] = self.num_bars_2_input.value() # antes 2
+            
+            # Lógica de guardado directa y sin cruces.
+            data['num_bars_2'] = self.num_bars_2_input.value()
+            data['num_bars_3'] = self.num_bars_3_input.value()
+            
             data['stirrup_size'] = self.stirrup_size_input.currentText()
             
             keys_to_compare = ['b', 'h', 'cover', 'rebar_size', 'num_bars_2', 'num_bars_3', 'stirrup_size']
@@ -558,65 +581,80 @@ class SectionDesignerScreen(QMainWindow):
             unit, factor = self.units_input.currentText(), CONVERSION_FACTORS[self.units_input.currentText()]
             b, h, cover = data['b'] * factor, data['h'] * factor, data['cover'] * factor
             rebar_size, stirrup_size = data['rebar_size'], data['stirrup_size']
-            num_bars_2, num_bars_3 = data['num_bars_2'], data['num_bars_3']
             
-            # BLOQUE DE SINCRONIZACION
-            max_ct_2 = max(0, num_bars_2 - 2)
-            current_list_2 = data.get('crossties_2_active', [])
-            if len(current_list_2) != max_ct_2:
-                current_list_2 = current_list_2[:max_ct_2]
-                current_list_2 += [False] * (max_ct_2 - len(current_list_2))
-                data['crossties_2_active'] = current_list_2
-                
-                new_count_2 = sum(current_list_2)
-                data['num_est_2'] = new_count_2
-                self.num_crossties_2_input.setText(str(new_count_2))
+            # EL BLOQUE DE SINCRONIZACIÓN HA SIDO ELIMINADO DE AQUÍ
             
-            max_ct_3 = max(0, num_bars_3 - 2)
-            current_list_3 = data.get('crossties_3_active', [])
-            if len(current_list_3) != max_ct_3:
-                current_list_3 = current_list_3[:max_ct_3]
-                current_list_3 += [False] * (max_ct_3 - len(current_list_3))
-                data['crossties_3_active'] = current_list_3
-                
-                new_count_3 = sum(current_list_3)
-                data['num_est_3'] = new_count_3
-                # --- CAMBIO: Usar setText en lugar de setValue ---
-                self.num_crossties_3_input.setText(str(new_count_3))
-            # FIN BLOQUE SINCRONIZACION
-           
             objetos = [Columna(0, 0, b, h), EstriboPrincipal(b, h, cover, stirrup_size, rebar_size)]
             self.drawn_crossties.clear(); self.potential_crossties.clear()
 
+            # Intercambiamos los valores para que el dibujo salga bien.
+            num_bars_2_for_drawing = data['num_bars_3']
+            num_bars_3_for_drawing = data['num_bars_2']
+
+            # ... (el resto de la función de dibujado permanece exactamente igual) ...
             stirrup_bar_d, rebar_d = BAR_DIAMETERS_IN[stirrup_size], BAR_DIAMETERS_IN[rebar_size]
             x_start = cover + stirrup_bar_d + rebar_d / 2; x_end = b - cover - stirrup_bar_d - rebar_d / 2
             y_start = cover + stirrup_bar_d + rebar_d / 2; y_end = h - cover - stirrup_bar_d - rebar_d / 2
-            spacing_x = (x_end - x_start) / (num_bars_2 - 1) if num_bars_2 > 1 else 0
-            spacing_y = (y_end - y_start) / (num_bars_3 - 1) if num_bars_3 > 1 else 0
+            spacing_x = (x_end - x_start) / (num_bars_2_for_drawing - 1) if num_bars_2_for_drawing > 1 else 0
+            spacing_y = (y_end - y_start) / (num_bars_3_for_drawing - 1) if num_bars_3_for_drawing > 1 else 0
+            
             positions = set()
-            for i in range(num_bars_2): positions.add((x_start + i * spacing_x, y_start)); positions.add((x_start + i * spacing_x, y_end))
-            for i in range(1, num_bars_3 - 1): positions.add((x_start, y_start + i * spacing_y)); positions.add((x_end, y_start + i * spacing_y))
+            for i in range(num_bars_2_for_drawing): positions.add((x_start + i * spacing_x, y_start)); positions.add((x_start + i * spacing_x, y_end))
+            for i in range(1, num_bars_3_for_drawing - 1): positions.add((x_start, y_start + i * spacing_y)); positions.add((x_end, y_start + i * spacing_y))
             for pos in sorted(list(positions)): objetos.append(BarraLongitudinal(pos, rebar_size))
             
-            interior_bars_x = [x_start + i * spacing_x for i in range(1, num_bars_2 - 1)]
+            interior_bars_x = [x_start + i * spacing_x for i in range(1, num_bars_2_for_drawing - 1)]
             for i in range(len(interior_bars_x)):
                 ct = CrossTie((interior_bars_x[i], y_start), (interior_bars_x[i], y_end), stirrup_size, rebar_size, 'vertical', i)
                 self.potential_crossties.append(ct)
-                if i < len(data['crossties_2_active']) and data['crossties_2_active'][i]:
+                if i < len(data.get('crossties_2_active', [])) and data['crossties_2_active'][i]:
                     objetos.append(ct)
                     self.drawn_crossties.append(ct)
 
-            interior_bars_y = [y_start + i * spacing_y for i in range(1, num_bars_3 - 1)]
+            interior_bars_y = [y_start + i * spacing_y for i in range(1, num_bars_3_for_drawing - 1)]
             for i in range(len(interior_bars_y)):
                 ct = CrossTie((x_start, interior_bars_y[i]), (x_end, interior_bars_y[i]), stirrup_size, rebar_size, 'horizontal', i)
                 self.potential_crossties.append(ct)
-                if i < len(data['crossties_3_active']) and data['crossties_3_active'][i]:
+                if i < len(data.get('crossties_3_active', [])) and data['crossties_3_active'][i]:
                     objetos.append(ct)
                     self.drawn_crossties.append(ct)
             
             self.canvas.set_draw_objects(objetos, b, h, reset_view=reset_view)
             
         except (ValueError, KeyError) as e: self.statusBar().showMessage(f"Error en datos: {e}")
-        except Exception as e: self.statusBar().showMessage(f"Error inesperado: {e}")
+        except Exception as e: self.statusBar().showMessage(f"Error inesperado: {e}") 
+        
+    def _update_crossties_for_direction(self, direction):
+        """
+        Recalcula los ganchos para una dirección específica (2 o 3)
+        cuando el número de barras es modificado por el usuario.
+        """
+        data = self.sections[self.current_section_index]
+        
+        if direction == 2:
+            num_bars = self.num_bars_2_input.value()
+            crossties_active_key = 'crossties_2_active'
+            num_est_key = 'num_est_2'
+            crosstie_input_widget = self.num_crossties_2_input
+        else: # direction == 3
+            num_bars = self.num_bars_3_input.value()
+            crossties_active_key = 'crossties_3_active'
+            num_est_key = 'num_est_3'
+            crosstie_input_widget = self.num_crossties_3_input
+
+        max_ct = max(0, num_bars - 2)
+        current_list = data.get(crossties_active_key, [])
+
+        # Redimensiona la lista si es necesario, conservando los ganchos existentes
+        if len(current_list) != max_ct:
+            current_list = current_list[:max_ct]
+            current_list += [False] * (max_ct - len(current_list))
+            data[crossties_active_key] = current_list
+            
+        # Recalcula el conteo y actualiza la data y el widget
+        new_count = sum(current_list)
+        data[num_est_key] = new_count
+        crosstie_input_widget.setText(str(new_count))
+        data['modification_state'] = 'user_modified'
         
     
