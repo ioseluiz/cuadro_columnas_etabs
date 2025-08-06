@@ -394,84 +394,70 @@ class SectionDesignerScreen(QMainWindow):
         else:
             print(f"Advertencia: No se encontró la sección '{section_name}' en el Section Designer.")
 
-
+    # ### INICIO DE LA MODIFICACIÓN ###
     def handle_canvas_click(self, world_pos):
+        """
+        Gestiona los clics del ratón en el lienzo para agregar o eliminar ganchos.
+        Esta versión mejorada unifica la lógica de detección para mayor precisión.
+        """
         world_x, world_y = world_pos
-        pick_radius = 1.0 / self.canvas.zoom_level
+        # El radio de detección se ajusta con el zoom para que sea más fácil hacer clic.
+        pick_radius = 1.5 / self.canvas.zoom_level  
         data = self.sections[self.current_section_index]
+
+        # 1. Encontrar el gancho potencial más cercano al clic.
+        closest_potential_ct = None
+        min_dist_sq = float('inf')
+
+        for pot_ct in self.potential_crossties:
+            mid_x = (pot_ct.x1 + pot_ct.x2) / 2
+            mid_y = (pot_ct.y1 + pot_ct.y2) / 2
+            dist_sq = (world_x - mid_x)**2 + (world_y - mid_y)**2
+            if dist_sq < min_dist_sq:
+                min_dist_sq = dist_sq
+                closest_potential_ct = pot_ct
         
-        # --- MODO ELIMINAR (CORREGIDO) ---
-        if self.btn_remove_crosstie.isChecked():
-            closest_clicked_ct = None
-            min_dist_sq = float('inf')
+        # Si no se encontró ningún gancho cercano, no hacer nada.
+        if not closest_potential_ct or min_dist_sq > pick_radius**2:
+            return
 
-            # Busca el gancho dibujado más cercano al clic
-            for ct in self.drawn_crossties:
-                if ct.is_clicked(world_x, world_y, pick_radius):
-                    # Calcula la distancia al centro del gancho para encontrar el más cercano
-                    mid_x, mid_y = (ct.x1 + ct.x2) / 2, (ct.y1 + ct.y2) / 2
-                    dist_sq = (world_x - mid_x)**2 + (world_y - mid_y)**2
-                    if dist_sq < min_dist_sq:
-                        min_dist_sq = dist_sq
-                        closest_clicked_ct = ct
-            
-            # Si se encontró un gancho para eliminar, procede
-            if closest_clicked_ct:
-                ct = closest_clicked_ct
-                if ct.direction == 'vertical':
-                    # Comprobación de seguridad de índice
-                    if ct.index < len(data['crossties_2_active']):
-                        data['crossties_2_active'][ct.index] = False
-                        new_count = sum(data['crossties_2_active'])
-                        data['num_est_2'] = new_count
-                        self.num_crossties_2_input.setText(str(new_count))
-                else: # Horizontal
-                    # Comprobación de seguridad de índice
-                    if ct.index < len(data['crossties_3_active']):
-                        data['crossties_3_active'][ct.index] = False
-                        new_count = sum(data['crossties_3_active'])
-                        data['num_est_3'] = new_count
-                        self.num_crossties_3_input.setText(str(new_count))
-                
-                self.statusBar().showMessage(f"Gancho suplementario eliminado. Actualizando...")
-                data['modification_state'] = 'user_modified'
-                self.generate_drawing(reset_view=False)
-                return
+        # 2. Determinar la acción basada en el modo del botón (Agregar o Eliminar).
+        ct = closest_potential_ct
+        active_list = None
+        count_key = ''
+        
+        if ct.direction == 'vertical':
+            active_list = data['crossties_2_active']
+            count_key = 'num_est_2'
+            widget_to_update = self.num_crossties_2_input
+        else: # Horizontal
+            active_list = data['crossties_3_active']
+            count_key = 'num_est_3'
+            widget_to_update = self.num_crossties_3_input
 
-        # --- MODO AGREGAR (CORREGIDO) ---
-        elif self.btn_add_crosstie.isChecked():
-            closest_ct = None
-            min_dist_sq = float('inf')
-            
-            # Busca la posición potencial más cercana para agregar un gancho
-            for pot_ct in self.potential_crossties:
-                mid_x, mid_y = (pot_ct.x1 + pot_ct.x2) / 2, (pot_ct.y1 + pot_ct.y2) / 2
-                dist_sq = (world_x - mid_x)**2 + (world_y - mid_y)**2
-                if dist_sq < min_dist_sq:
-                    min_dist_sq = dist_sq
-                    closest_ct = pot_ct
-            
-            if closest_ct:
-                if closest_ct.direction == 'vertical':
-                    # Comprobación de seguridad para evitar IndexError
-                    if closest_ct.index < len(data['crossties_2_active']) and not data['crossties_2_active'][closest_ct.index]:
-                        data['crossties_2_active'][closest_ct.index] = True
-                        new_count = sum(data['crossties_2_active'])
-                        data['num_est_2'] = new_count
-                        self.num_crossties_2_input.setText(str(new_count))
-                        self.statusBar().showMessage("Gancho suplementario agregado. Actualizando...")
-                        data['modification_state'] = 'user_modified'
-                        self.generate_drawing(reset_view=False)
-                else: # Horizontal
-                    # Comprobación de seguridad para evitar IndexError
-                    if closest_ct.index < len(data['crossties_3_active']) and not data['crossties_3_active'][closest_ct.index]:
-                        data['crossties_3_active'][closest_ct.index] = True
-                        new_count = sum(data['crossties_3_active'])
-                        data['num_est_3'] = new_count
-                        self.num_crossties_3_input.setText(str(new_count))
-                        self.statusBar().showMessage("Gancho suplementario agregado. Actualizando...")
-                        data['modification_state'] = 'user_modified'
-                        self.generate_drawing(reset_view=False)
+        # Comprobación de seguridad para evitar IndexError
+        if ct.index >= len(active_list):
+            return
+
+        # 3. Ejecutar la acción.
+        action_performed = False
+        if self.btn_add_crosstie.isChecked() and not active_list[ct.index]:
+            active_list[ct.index] = True
+            self.statusBar().showMessage("Gancho suplementario agregado. Actualizando...")
+            action_performed = True
+        elif self.btn_remove_crosstie.isChecked() and active_list[ct.index]:
+            active_list[ct.index] = False
+            self.statusBar().showMessage("Gancho suplementario eliminado. Actualizando...")
+            action_performed = True
+        
+        # 4. Actualizar el estado y redibujar si se realizó una acción.
+        if action_performed:
+            new_count = sum(active_list)
+            data[count_key] = new_count
+            widget_to_update.setText(str(new_count))
+            data['modification_state'] = 'user_modified'
+            self.generate_drawing(reset_view=False)
+    # ### FIN DE LA MODIFICACIÓN ###
     
     def crosstie_button_clicked(self):
         sender = self.sender()
@@ -598,7 +584,6 @@ class SectionDesignerScreen(QMainWindow):
         self.hide()
         event.ignore()
 
-    # ### INICIO DE LA MODIFICACIÓN ###
     def _get_distributed_indices(self, num_to_place, total_slots):
         """
         Calcula los índices para distribuir num_to_place elementos en total_slots.
@@ -689,7 +674,6 @@ class SectionDesignerScreen(QMainWindow):
             
         except (ValueError, KeyError) as e: self.statusBar().showMessage(f"Error en datos: {e}")
         except Exception as e: self.statusBar().showMessage(f"Error inesperado: {e}") 
-    # ### FIN DE LA MODIFICACIÓN ###
         
     def _update_crossties_for_direction(self, direction):
         """
